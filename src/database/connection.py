@@ -6,7 +6,7 @@ import os
 
 
 # Create database directory if it doesn't exist
-os.makedirs(os.path.dirname("./logs/proxy.db"), exist_ok=True)
+os.makedirs(os.path.dirname("./data/proxy.db"), exist_ok=True)
 
 # Create async engine
 engine = create_async_engine(

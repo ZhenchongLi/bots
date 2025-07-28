@@ -19,8 +19,8 @@ COPY src/ ./src/
 # Install dependencies with uv
 RUN uv sync --frozen --no-dev
 
-# Create logs directory
-RUN mkdir -p logs
+# Create logs and data directories
+RUN mkdir -p logs data
 
 # Expose port
 EXPOSE 8000

@@ -1,12 +1,13 @@
 # OpenAI API 统一代理服务
 
-一个统一的代理服务，支持任意OpenAI API兼容请求，透明转发并记录请求。
+一个简洁的单模型代理服务，提供OpenAI API兼容接口，透明转发并记录请求。
 
 ## 功能特性
 
-- **代理功能**: 接收OpenAI API规范的请求，无修改转发至实际OpenAI API
+- **单模型代理**: 专注于单个AI模型的代理服务，配置简单
+- **多平台支持**: 支持连接OpenAI、Claude、Gemini等多个AI平台
+- **格式转换**: 自动处理不同AI服务间的API格式差异  
 - **日志记录**: 自动记录每个请求和响应的内容到SQLite数据库和日志文件
-- **向量存储**: 预留Qdrant向量数据库集成，支持未来的智能分析需求
 - **异步处理**: 基于FastAPI的高性能异步处理
 
 ## 技术栈
@@ -14,7 +15,6 @@
 - **FastAPI**: 轻量级高效Web服务框架
 - **SQLAlchemy**: 数据库ORM，异步支持
 - **SQLite**: 请求响应日志存储
-- **Qdrant**: 向量数据库（可选）
 - **Structlog**: 结构化日志记录
 - **Uvicorn**: ASGI服务器
 
@@ -39,9 +39,16 @@ uv sync
 cp .env.example .env
 ```
 
-编辑 `.env` 文件，设置你的OpenAI API密钥：
+编辑 `.env` 文件，配置你的AI模型：
 ```env
-OPENAI_API_KEY=your_openai_api_key_here
+# 平台类型 (openai, anthropic, google, azure_openai, custom)
+TYPE=openai
+# API密钥
+API_KEY=your_api_key_here
+# API基础URL
+BASE_URL=https://api.openai.com/v1
+# 实际模型名称
+ACTUAL_NAME=gpt-3.5-turbo
 ```
 
 ### 3. 运行服务
@@ -80,15 +87,16 @@ curl http://localhost:8000/chat/completions \
 
 ```
 ├── src/
-│   ├── api/           # API路由
-│   ├── core/          # 核心业务逻辑
+│   ├── api/           # API路由（代理接口）
+│   ├── core/          # 核心业务逻辑（模型管理、平台客户端）
 │   ├── config/        # 配置管理
 │   ├── database/      # 数据库连接和仓库
 │   ├── logging/       # 日志配置和中间件
 │   └── models/        # 数据模型
 ├── tests/             # 测试文件
 ├── logs/              # 日志文件目录
-└── requirements.txt   # 依赖列表
+├── data/              # 数据库文件目录
+└── pyproject.toml     # 项目配置和依赖
 ```
 
 ## 配置说明
@@ -96,88 +104,73 @@ curl http://localhost:8000/chat/completions \
 主要配置项在 `.env` 文件中：
 
 ### 基础配置
-- `OPENAI_API_KEY`: OpenAI API密钥（必需）
-- `OPENAI_BASE_URL`: OpenAI API基础URL
-- `HOST`: 服务监听地址
-- `PORT`: 服务监听端口
-- `DATABASE_URL`: SQLite数据库URL
-- `QDRANT_URL`: Qdrant向量数据库URL（可选）
-- `LOG_FILE_PATH`: 日志文件路径
+- `HOST`: 服务监听地址 (默认: 0.0.0.0)
+- `PORT`: 服务监听端口 (默认: 8000)
+- `DATABASE_URL`: SQLite数据库URL（默认存储在data目录）
+- `LOG_FILE_PATH`: 日志文件路径（默认存储在logs目录）
 
-### 模型配置
-- `AVAILABLE_MODELS`: 可用模型列表（逗号分隔）
-- `VALIDATE_MODELS`: 是否验证模型名称（true/false）
-- `ALLOW_UNKNOWN_MODELS`: 是否允许未知模型（true/false）
-- `MODEL_MAPPINGS`: 模型映射（JSON格式，用于模型别名）
+### 单模型配置
+- `TYPE`: 平台类型 (openai, anthropic, google, azure_openai, custom)
+- `API_KEY`: API密钥
+- `BASE_URL`: API基础URL
+- `ACTUAL_NAME`: 实际模型名称
+- `ENABLED`: 是否启用 (默认: true)
+- `MAX_TOKENS`: 最大令牌数 (默认: 4096)
+- `SUPPORTS_STREAMING`: 是否支持流式输出 (默认: true)
+- `SUPPORTS_FUNCTION_CALLING`: 是否支持函数调用 (默认: true)
 
-## 模型管理
+## 平台配置示例
 
-### 支持的OpenAI模型
-默认支持以下模型：
-- GPT系列: `gpt-4`, `gpt-4-turbo`, `gpt-4o`, `gpt-4o-mini`, `gpt-3.5-turbo`
-- 嵌入模型: `text-embedding-ada-002`, `text-embedding-3-small`, `text-embedding-3-large`
-- 音频模型: `whisper-1`, `tts-1`, `tts-1-hd`
-- 图像模型: `dall-e-2`, `dall-e-3`
-
-### 模型别名和映射
-可以通过环境变量或管理API配置模型别名：
-
+### OpenAI 配置
 ```env
-# 将claude映射到gpt-4，llama映射到gpt-3.5-turbo
-MODEL_MAPPINGS={"claude":"gpt-4","llama":"gpt-3.5-turbo"}
+TYPE=openai
+API_KEY=sk-your-openai-api-key
+BASE_URL=https://api.openai.com/v1
+ACTUAL_NAME=gpt-4
 ```
 
-### 管理API端点
+### Claude 配置
+```env
+TYPE=anthropic
+API_KEY=sk-ant-your-claude-key
+BASE_URL=https://api.anthropic.com/v1
+ACTUAL_NAME=claude-3-sonnet-20240229
+```
 
-#### 获取可用模型
+### Gemini 配置
+```env
+TYPE=google
+API_KEY=your-google-api-key
+BASE_URL=https://generativelanguage.googleapis.com/v1
+ACTUAL_NAME=gemini-pro
+```
+
+### Azure OpenAI 配置
+```env
+TYPE=azure_openai
+API_KEY=your-azure-api-key
+BASE_URL=https://your-resource.openai.azure.com/openai/deployments/your-deployment
+ACTUAL_NAME=gpt-4
+```
+
+### 本地模型配置 (Ollama)
+```env
+TYPE=custom
+API_KEY=not-needed
+BASE_URL=http://localhost:11434/v1
+ACTUAL_NAME=llama2
+```
+
+## API 接口
+
+### 获取可用模型
 ```bash
 GET /models
 ```
 
-#### 管理API (需要管理员权限)
+### 健康检查
 ```bash
-# 获取模型配置
-GET /admin/models
-
-# 添加新模型
-POST /admin/models
-{
-  "name": "new-model-name",
-  "display_name": "New Model",
-  "description": "Model description"
-}
-
-# 删除模型
-DELETE /admin/models/{model_name}
-
-# 添加模型映射
-POST /admin/model-mappings
-{
-  "alias": "my-model",
-  "actual_model": "gpt-4"
-}
-
-# 删除模型映射
-DELETE /admin/model-mappings/{alias}
-
-# 重新加载配置
-POST /admin/reload-config
-```
-
-### 兼容其他OpenAI-like API
-要连接到其他OpenAI兼容的API（如Azure OpenAI、本地部署的模型等）：
-
-1. 修改 `OPENAI_BASE_URL` 为目标API地址
-2. 设置对应的 `OPENAI_API_KEY`
-3. 根据目标API支持的模型更新 `AVAILABLE_MODELS`
-4. 使用 `MODEL_MAPPINGS` 创建模型别名以保持兼容性
-
-例如连接到Azure OpenAI：
-```env
-OPENAI_BASE_URL=https://your-resource.openai.azure.com/openai/deployments/your-deployment
-OPENAI_API_KEY=your-azure-api-key
-AVAILABLE_MODELS=gpt-35-turbo,gpt-4
-MODEL_MAPPINGS={"gpt-3.5-turbo":"gpt-35-turbo"}
+GET /health
 ```
 
 ## 日志记录
@@ -186,11 +179,10 @@ MODEL_MAPPINGS={"gpt-3.5-turbo":"gpt-35-turbo"}
 
 1. **数据库日志**: 存储在SQLite数据库中，包含请求/响应的完整信息
 2. **文件日志**: 结构化JSON格式的日志文件
-3. **向量存储**: 可选的Qdrant向量数据库存储（用于未来的相似性搜索）
 
-## 健康检查
+## 使用说明
 
-访问 `http://localhost:8000/health` 检查服务状态。
+本代理服务会将所有请求中的模型名称替换为配置的 `ACTUAL_NAME`，然后转发到对应的AI平台。你可以使用任何模型名称发起请求，服务会自动处理。
 
 ## 开发
 
@@ -215,7 +207,8 @@ uv run mypy src/
 
 ## 注意事项
 
-1. 确保设置正确的OpenAI API密钥
+1. 确保为所选AI平台配置正确的API密钥和BASE_URL
 2. 生产环境中请配置适当的CORS策略
 3. 定期清理旧的日志文件以节省存储空间
-4. Qdrant集成是可选的，如不需要可忽略相关配置
+4. 修改配置后需要重启服务才能生效
+5. 所有客户端请求中的模型名称会被自动替换为ACTUAL_NAME

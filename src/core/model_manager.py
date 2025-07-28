@@ -1,5 +1,5 @@
-from typing import Dict, List, Optional, Any
-from src.config.settings import settings, ModelConfig
+from typing import Dict, List, Optional, Any, Tuple
+from src.config.settings import settings
 import structlog
 
 logger = structlog.get_logger()
@@ -7,78 +7,92 @@ logger = structlog.get_logger()
 
 class ModelManager:
     def __init__(self):
-        self.available_models = settings.available_models
-        self.model_mappings = settings.model_mappings
-        self.validate_models = settings.validate_models
-        self.allow_unknown_models = settings.allow_unknown_models
+        self.config = self._get_model_config()
     
-    def is_model_available(self, model_name: str) -> bool:
-        """Check if a model is available in the configured list."""
-        return model_name in self.available_models
+    def _get_model_config(self) -> Dict[str, Any]:
+        """Get the single model configuration from settings."""
+        return {
+            "type": settings.type,
+            "api_key": settings.api_key,
+            "base_url": settings.base_url,
+            "enabled": settings.enabled,
+            "default_headers": settings.default_headers,
+            "timeout": settings.timeout,
+            "actual_name": settings.actual_name,
+            "display_name": settings.display_name,
+            "description": settings.description,
+            "max_tokens": settings.max_tokens,
+            "supports_streaming": settings.supports_streaming,
+            "supports_function_calling": settings.supports_function_calling,
+            "cost_per_1k_input_tokens": settings.cost_per_1k_input_tokens,
+            "cost_per_1k_output_tokens": settings.cost_per_1k_output_tokens,
+        }
     
-    def get_mapped_model(self, requested_model: str) -> str:
-        """Get the actual model name to use, applying any mappings."""
-        return self.model_mappings.get(requested_model, requested_model)
+    def is_model_available(self) -> bool:
+        """Check if the model is available and enabled."""
+        return self.config.get("enabled", False) and self.config.get("api_key", "")
     
-    def validate_model_request(self, model_name: str) -> tuple[bool, Optional[str]]:
+    def get_model_config(self) -> Dict[str, Any]:
+        """Get model configuration."""
+        return self.config
+    
+    def validate_model_request(self, model_name: str) -> Tuple[bool, Optional[str]]:
         """
         Validate a model request.
         Returns (is_valid, error_message)
         """
-        if not self.validate_models:
-            return True, None
+        # Check if model is enabled and has API key
+        if not self.config.get("enabled", False):
+            return False, "Model is disabled"
         
-        # Check if model is in available list
-        if self.is_model_available(model_name):
-            return True, None
+        if not self.config.get("api_key"):
+            return False, "API key not configured"
         
-        # Check if there's a mapping for this model
-        mapped_model = self.get_mapped_model(model_name)
-        if mapped_model != model_name and self.is_model_available(mapped_model):
-            return True, None
-        
-        # Check if unknown models are allowed
-        if self.allow_unknown_models:
-            logger.warning("Unknown model requested but allowed", model=model_name)
-            return True, None
-        
-        return False, f"Model '{model_name}' is not available. Available models: {', '.join(self.available_models)}"
+        return True, None
     
-    def process_model_request(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
+    def process_model_request(self, request_data: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
         """
-        Process a request and apply model mappings if necessary.
-        Returns the modified request data.
+        Process a request and determine actual model name.
+        Returns (request_data, actual_model_name)
         """
         if "model" not in request_data:
-            return request_data
+            raise ValueError("No model specified in request")
         
-        original_model = request_data["model"]
+        requested_model = request_data["model"]
         
-        # Validate the model
-        is_valid, error_message = self.validate_model_request(original_model)
+        # Validate the model configuration
+        is_valid, error_message = self.validate_model_request(requested_model)
         if not is_valid:
             raise ValueError(error_message)
         
-        # Apply model mapping
-        mapped_model = self.get_mapped_model(original_model)
-        if mapped_model != original_model:
-            logger.info("Model mapping applied", 
-                       original_model=original_model, 
-                       mapped_model=mapped_model)
-            request_data = request_data.copy()
-            request_data["model"] = mapped_model
+        # Get actual model name from configuration
+        actual_model_name = self.config.get("actual_name", requested_model)
         
-        return request_data
+        # Update request data with actual model name
+        modified_request = request_data.copy()
+        modified_request["model"] = actual_model_name
+        
+        logger.info("Model request processed", 
+                   requested_model=requested_model,
+                   actual_model=actual_model_name,
+                   platform_type=self.config.get("type"))
+        
+        return modified_request, actual_model_name
     
     def get_models_list(self) -> List[Dict[str, Any]]:
         """Get a list of available models in OpenAI API format."""
         models = []
-        for model_name in self.available_models:
+        
+        # Only include model if it's enabled and has api_key
+        if self.config.get("enabled", False) and self.config.get("api_key"):
+            model_name = self.config.get("actual_name", "model")
+            platform_type = self.config.get("type", "unknown")
+            
             models.append({
                 "id": model_name,
                 "object": "model",
                 "created": 1677610602,  # Placeholder timestamp
-                "owned_by": "openai",
+                "owned_by": platform_type,
                 "root": model_name,
                 "parent": None,
                 "permission": [{
@@ -96,30 +110,24 @@ class ModelManager:
                     "is_blocking": False
                 }]
             })
+        
         return models
     
-    def add_model(self, model_name: str) -> None:
-        """Add a model to the available models list."""
-        if model_name not in self.available_models:
-            self.available_models.append(model_name)
-            logger.info("Model added", model=model_name)
-    
-    def remove_model(self, model_name: str) -> None:
-        """Remove a model from the available models list."""
-        if model_name in self.available_models:
-            self.available_models.remove(model_name)
-            logger.info("Model removed", model=model_name)
-    
-    def add_model_mapping(self, alias: str, actual_model: str) -> None:
-        """Add a model mapping (alias -> actual model)."""
-        self.model_mappings[alias] = actual_model
-        logger.info("Model mapping added", alias=alias, actual_model=actual_model)
-    
-    def remove_model_mapping(self, alias: str) -> None:
-        """Remove a model mapping."""
-        if alias in self.model_mappings:
-            del self.model_mappings[alias]
-            logger.info("Model mapping removed", alias=alias)
+    def reload_config(self) -> None:
+        """Reload configuration from settings."""
+        from src.config.settings import settings
+        self.config = self._get_model_config()
+        logger.info("Configuration reloaded")
+            
+    def get_available_models(self) -> List[str]:
+        """Get list of available model names."""
+        if self.config.get("enabled", False) and self.config.get("api_key"):
+            return [self.config.get("actual_name", "model")]
+        return []
+        
+    def get_platform_type(self) -> Optional[str]:
+        """Get the platform type."""
+        return self.config.get("type")
 
 
 # Global model manager instance
