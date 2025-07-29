@@ -129,3 +129,4 @@ logs/
 *.sqlite3
 
 data/
+.env.test
