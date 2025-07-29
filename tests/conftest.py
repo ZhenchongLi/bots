@@ -1,12 +1,14 @@
 import pytest
 import asyncio
+import os
+from pathlib import Path
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
 import tempfile
-import os
 
 from src.main import create_app
 from src.config.settings import Settings, PlatformType
+from tests.test_settings import IsolatedTestSettings, create_test_settings_dict
 
 
 @pytest.fixture(scope="session")
@@ -17,28 +19,64 @@ def event_loop():
     loop.close()
 
 
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_env():
+    """Setup test environment with .env.test file."""
+    # Get the project root directory
+    project_root = Path(__file__).parent.parent
+    test_env_file = project_root / ".env.test"
+    
+    # Ensure .env.test exists
+    if not test_env_file.exists():
+        raise FileNotFoundError(f"Test environment file not found: {test_env_file}")
+    
+    # Set environment to use test configuration
+    original_env_file = os.environ.get("ENV_FILE")
+    os.environ["ENV_FILE"] = str(test_env_file)
+    
+    yield
+    
+    # Cleanup
+    if original_env_file:
+        os.environ["ENV_FILE"] = original_env_file
+    else:
+        os.environ.pop("ENV_FILE", None)
+
+
 @pytest.fixture
 def test_settings():
-    """Create test settings."""
-    return Settings(
-        host="127.0.0.1",
-        port=8001,
-        type=PlatformType.OPENAI,
-        api_key="test-api-key",
-        base_url="https://api.openai.com/v1",
-        actual_name="gpt-3.5-turbo",
-        enabled=True,
-        database_url="sqlite+aiosqlite:///:memory:",
-        log_file_path="/tmp/test.log"
-    )
+    """Create test settings from .env.test file."""
+    return IsolatedTestSettings()
+
+
+@pytest.fixture
+def test_settings_dict():
+    """Create test settings dictionary for mocking."""
+    return create_test_settings_dict()
 
 
 @pytest.fixture
 def mock_settings(test_settings):
-    """Mock the settings module."""
-    with patch('src.config.settings.settings', test_settings), \
-         patch('src.core.model_manager.settings', test_settings):
-        yield test_settings
+    """Mock the settings module with test configuration."""
+    # Create a mock settings object with test values
+    mock_settings_obj = MagicMock()
+    test_dict = create_test_settings_dict()
+    
+    # Set all attributes on the mock
+    for key, value in test_dict.items():
+        setattr(mock_settings_obj, key, value)
+    
+    with patch('src.config.settings.settings', mock_settings_obj), \
+         patch('src.core.model_manager.settings', mock_settings_obj):
+        # Also patch the model_manager's config directly
+        from src.core.model_manager import model_manager
+        original_config = model_manager.config
+        model_manager.config = test_dict
+        
+        try:
+            yield mock_settings_obj
+        finally:
+            model_manager.config = original_config
 
 
 @pytest.fixture

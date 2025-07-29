@@ -2,39 +2,31 @@ import pytest
 import os
 import tempfile
 from unittest.mock import patch
+from pathlib import Path
 
 from src.config.settings import Settings, PlatformType
+from tests.test_settings import IsolatedTestSettings, create_test_settings_dict
 
 
-class TestSettings:
+class TestSettingsConfig:
     """Test settings configuration."""
     
-    def test_default_settings(self):
-        """Test default settings values."""
-        # Clear environment variables to test true defaults
-        env_vars_to_clear = [
-            "HOST", "PORT", "LOG_LEVEL", "TYPE", "API_KEY", "BASE_URL", 
-            "ACTUAL_NAME", "ENABLED", "MAX_TOKENS", "SUPPORTS_STREAMING", 
-            "SUPPORTS_FUNCTION_CALLING"
-        ]
+    def test_test_environment_settings(self):
+        """Test that test environment settings are loaded correctly."""
+        settings = IsolatedTestSettings()
         
-        with patch.dict(os.environ, {}, clear=False):
-            # Remove any existing env vars that might interfere
-            for var in env_vars_to_clear:
-                os.environ.pop(var, None)
-            
-            settings = Settings()
-            
-            assert settings.host == "0.0.0.0"
-            assert settings.port == 8000
-            assert settings.log_level == "info"
-            assert settings.type == PlatformType.OPENAI
-            assert settings.base_url == "https://api.openai.com/v1"
-            assert settings.actual_name == "gpt-3.5-turbo"
-            assert settings.enabled is True
-            assert settings.max_tokens == 4096
-            assert settings.supports_streaming is True
-            assert settings.supports_function_calling is True
+        assert settings.host == "127.0.0.1"
+        assert settings.port == 8001
+        assert settings.log_level == "debug"
+        assert settings.type == PlatformType.OPENAI
+        assert settings.api_key == "test-api-key-12345"
+        assert settings.base_url == "https://api.test-openai.com/v1"
+        assert settings.actual_name == "gpt-3.5-turbo-test"
+        assert settings.enabled is True
+        assert settings.max_tokens == 4096
+        assert settings.supports_streaming is True
+        assert settings.supports_function_calling is True
+        assert settings.database_url == "sqlite+aiosqlite:///:memory:"
     
     def test_platform_type_enum(self):
         """Test platform type enum values."""

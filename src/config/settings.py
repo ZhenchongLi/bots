@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings
 from typing import Optional, Dict, List, Any
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, ConfigDict
 import json
 from enum import Enum
 
@@ -51,8 +51,7 @@ class Settings(BaseSettings):
             return None
         return float(v)
 
-    class Config:
-        env_file = ".env"
+    model_config = ConfigDict(env_file=".env")
 
 
 settings = Settings()

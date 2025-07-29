@@ -8,13 +8,25 @@
 tests/
 ├── __init__.py
 ├── conftest.py              # 测试配置和共享 fixtures
+├── test_settings.py         # 测试专用设置配置
 ├── test_config.py           # 配置测试
 ├── test_model_manager.py    # 模型管理器测试
 ├── test_api.py             # API 端点测试
 ├── test_platform_clients.py # 平台客户端测试
 ├── test_integration.py     # 集成测试
+├── logs/                   # 测试日志目录
 └── README.md               # 本文档
 ```
+
+## 测试环境配置
+
+测试使用专门的 `.env.test` 文件来确保测试环境与生产环境完全隔离：
+
+- **配置文件**: `.env.test` - 包含测试专用的配置
+- **数据库**: 内存SQLite数据库 (`sqlite+aiosqlite:///:memory:`)
+- **API密钥**: 测试用假密钥 (`test-api-key-12345`)
+- **模型名称**: 测试模型 (`gpt-3.5-turbo-test`)
+- **端口**: 测试端口 (8001)
 
 ## 测试类型
 
@@ -29,9 +41,13 @@ tests/
 
 ## 运行测试
 
-### 安装测试依赖
+### 环境要求
 ```bash
+# 1. 安装测试依赖
 uv sync --group dev
+
+# 2. 确保测试配置文件存在
+ls .env.test  # 应该存在，包含测试配置
 ```
 
 ### 运行所有测试
@@ -39,9 +55,15 @@ uv sync --group dev
 # 使用测试脚本（推荐）
 ./run_tests.sh
 
-# 或直接使用 pytest
+# 或直接使用 pytest（会自动使用 .env.test）
 uv run pytest tests/ -v
 ```
+
+测试会自动：
+- ✅ 使用 `.env.test` 中的测试配置
+- ✅ 使用内存数据库，不会影响生产数据
+- ✅ 使用测试API密钥，不会产生实际API调用费用
+- ✅ 完全隔离测试环境，不受系统环境变量影响
 
 ### 运行特定测试
 ```bash

@@ -30,7 +30,7 @@ class ModelManager:
     
     def is_model_available(self) -> bool:
         """Check if the model is available and enabled."""
-        return self.config.get("enabled", False) and self.config.get("api_key", "")
+        return self.config.get("enabled", False) and bool(self.config.get("api_key", ""))
     
     def get_model_config(self) -> Dict[str, Any]:
         """Get model configuration."""

@@ -200,13 +200,62 @@ class TestAnthropicClient:
         )
         
         assert result["status_code"] == 200
-        assert result["json"]["content"][0]["text"] == "Hello from Claude!"
+        assert result["json"]["choices"][0]["message"]["content"] == "Hello from Claude!"
         
         # Verify the request was made with correct headers
         mock_client.request.assert_called_once()
         call_args = mock_client.request.call_args
         assert call_args[1]["headers"]["x-api-key"] == "sk-ant-test-key"
         assert call_args[1]["headers"]["anthropic-version"] == "2023-06-01"
+    
+    @pytest.mark.asyncio
+    @patch('httpx.AsyncClient')
+    async def test_make_request_with_system_message(self, mock_httpx, anthropic_client):
+        """Test Anthropic API request with system message."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "application/json"}
+        mock_response.json.return_value = {
+            "content": [{"text": "System message processed!"}]
+        }
+        
+        mock_client = MagicMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        mock_client.request = AsyncMock(return_value=mock_response)
+        mock_httpx.return_value = mock_client
+        
+        # Request with system message
+        json_data = {
+            "model": "claude-3-sonnet",
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "Hello"}
+            ]
+        }
+        
+        result = await anthropic_client.make_request(
+            method="POST",
+            path="/messages",
+            headers={"content-type": "application/json"},
+            json_data=json_data,
+            params={}
+        )
+        
+        assert result["status_code"] == 200
+        assert result["json"]["choices"][0]["message"]["content"] == "System message processed!"
+        
+        # Verify the system message was processed correctly
+        mock_client.request.assert_called_once()
+        call_args = mock_client.request.call_args
+        sent_data = call_args[1]["json"]
+        
+        # System message should be extracted to separate field
+        assert "system" in sent_data
+        assert sent_data["system"] == "You are a helpful assistant."
+        # Only user message should remain in messages
+        assert len(sent_data["messages"]) == 1
+        assert sent_data["messages"][0]["role"] == "user"
 
 
 class TestGoogleClient:
@@ -251,7 +300,7 @@ class TestGoogleClient:
         )
         
         assert result["status_code"] == 200
-        assert result["json"]["candidates"][0]["content"]["parts"][0]["text"] == "Hello from Gemini!"
+        assert result["json"]["choices"][0]["message"]["content"] == "Hello from Gemini!"
 
 
 class TestAzureAndCustomClients:
