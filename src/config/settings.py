@@ -1,7 +1,7 @@
 from pydantic_settings import BaseSettings
 from typing import Optional, Dict, List, Any
 from pydantic import Field, field_validator, ConfigDict
-import json
+import orjson as json
 from enum import Enum
 
 

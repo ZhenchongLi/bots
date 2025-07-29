@@ -8,6 +8,7 @@ from src.api.proxy import router as proxy_router
 from src.api.openai_api import router as openai_router
 from src.logging.middleware import LoggingMiddleware
 from src.logging.config import configure_logging
+from src.api.responses import ORJSONResponse
 from src.database.connection import init_db
 
 
@@ -27,6 +28,7 @@ def create_app() -> FastAPI:
         description="A unified proxy service for OpenAI API requests with logging",
         version="0.1.0",
         lifespan=lifespan,
+        default_response_class=ORJSONResponse,
     )
 
     app.add_middleware(LoggingMiddleware)

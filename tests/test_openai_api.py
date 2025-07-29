@@ -2,7 +2,7 @@
 Unit tests for OpenAI API compatibility endpoints
 """
 import pytest
-import json
+import orjson as json
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 

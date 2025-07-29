@@ -2,7 +2,7 @@ from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import StreamingResponse
 import time
-import json
+import orjson as json
 import structlog
 from typing import Dict, Any, Optional
 import asyncio

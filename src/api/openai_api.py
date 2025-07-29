@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from typing import Dict, Any
-import json
+import orjson as json
 import time
 import uuid
 from datetime import datetime
@@ -129,7 +129,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
             async def generate_stream():
                 # This would need to be implemented based on the actual streaming response
                 # For now, return the response as is
-                yield f"data: {json.dumps(response_data['json'])}\n\n"
+                yield f"data: {json.dumps(response_data['json']).decode()}\n\n"
                 yield "data: [DONE]\n\n"
             
             return StreamingResponse(
@@ -214,7 +214,7 @@ async def create_completion(request: CompletionRequest):
         if request.stream:
             # Handle streaming response
             async def generate_stream():
-                yield f"data: {json.dumps(response_data['json'])}\n\n"
+                yield f"data: {json.dumps(response_data['json']).decode()}\n\n"
                 yield "data: [DONE]\n\n"
             
             return StreamingResponse(

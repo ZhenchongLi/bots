@@ -33,6 +33,7 @@ dependencies = [
     "greenlet>=3.2.3",
     "pytest-asyncio>=1.1.0",
     "openai>=1.0.0",
+    "orjson>=3.9.0",
 ]
 
 [project.optional-dependencies]

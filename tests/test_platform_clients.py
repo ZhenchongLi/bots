@@ -1,5 +1,5 @@
 import pytest
-import json
+import orjson as json
 from unittest.mock import patch, MagicMock, AsyncMock
 
 from src.core.platform_clients import (

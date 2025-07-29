@@ -2,7 +2,7 @@
 Integration tests for OpenAI Python library compatibility
 """
 import pytest
-import json
+import orjson as json
 
 # Skip these tests if openai library is not installed
 openai = pytest.importorskip("openai")

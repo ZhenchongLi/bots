@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-import json
+import orjson as json
 
 from src.models.request_log import RequestLog
 
@@ -27,11 +27,11 @@ class RequestLogRepository:
             method=method,
             path=path,
             client_ip=client_ip,
-            request_headers=json.dumps(request_headers) if request_headers else None,
-            request_body=json.dumps(request_body) if request_body else None,
+            request_headers=json.dumps(request_headers).decode() if request_headers else None,
+            request_body=json.dumps(request_body).decode() if request_body else None,
             response_status=response_status,
-            response_headers=json.dumps(response_headers) if response_headers else None,
-            response_body=json.dumps(response_body) if response_body else None,
+            response_headers=json.dumps(response_headers).decode() if response_headers else None,
+            response_body=json.dumps(response_body).decode() if response_body else None,
             processing_time=processing_time,
         )
         

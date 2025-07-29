@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from typing import Dict, Any
-import json
+import orjson as json
 import time
 
 from src.core.model_manager import model_manager

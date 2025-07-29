@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 import httpx
-import json
+import orjson as json
 import structlog
 from src.config.settings import PlatformType
 
