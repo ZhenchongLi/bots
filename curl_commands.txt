@@ -1,0 +1,66 @@
+# OfficeAI API 测试命令
+# API Key: officeai-admin-79222376bda3186039336d460f7150c7
+#
+# 🔄 重要说明：不管客户端传递什么模型名，服务端都会使用 .env 配置的 ACTUAL_NAME 模型
+# 📝 模型名映射：客户端任意模型名 ➜ 服务端配置的实际模型
+
+# 1. 测试模型列表 (应该返回 officeai 模型)
+curl -H "Authorization: Bearer officeai-admin-79222376bda3186039336d460f7150c7" http://localhost:8000/v1/models
+
+# 2. 测试聊天完成 (传递任意模型名，都会被替换为配置的实际模型)
+curl -X POST -H "Authorization: Bearer officeai-admin-79222376bda3186039336d460f7150c7" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt-4","messages":[{"role":"user","content":"Hello"}],"max_tokens":50}' \
+  http://localhost:8000/v1/chat/completions
+
+# 3. 查看所有API密钥
+curl -H "Authorization: Bearer officeai-admin-79222376bda3186039336d460f7150c7" http://localhost:8000/admin/api-keys
+
+# 4. 创建新的API密钥
+curl -X POST -H "Authorization: Bearer officeai-admin-79222376bda3186039336d460f7150c7" \
+  -H "Content-Type: application/json" \
+  -d '{"key_id":"test_key","description":"测试密钥","permissions":["chat","completion"],"expires_days":30}' \
+  http://localhost:8000/admin/api-keys
+
+# 5. 测试文本完成API (传递任意模型名，使用配置的实际模型)
+curl -X POST -H "Authorization: Bearer officeai-admin-79222376bda3186039336d460f7150c7" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"claude-3-opus","prompt":"Hello","max_tokens":50}' \
+  http://localhost:8000/v1/completions
+
+# 6. 测试embeddings API (传递任意模型名，使用配置的实际模型)
+curl -X POST -H "Authorization: Bearer officeai-admin-79222376bda3186039336d460f7150c7" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"text-embedding-3-large","input":"Hello world"}' \
+  http://localhost:8000/v1/embeddings
+
+# 7. 撤销API密钥 (替换YOUR_KEY_TO_REVOKE为实际要撤销的密钥)
+curl -X DELETE -H "Authorization: Bearer officeai-admin-79222376bda3186039336d460f7150c7" \
+  -H "Content-Type: application/json" \
+  -d '{"api_key":"YOUR_KEY_TO_REVOKE"}' \
+  http://localhost:8000/admin/api-keys
+
+# 8. 测试无权限访问 (应该返回403错误)
+# 首先用上面的命令创建一个只有chat权限的密钥，然后用它访问admin接口
+
+# 9. 测试无效API密钥 (应该返回401错误)
+curl -H "Authorization: Bearer invalid-key-123" http://localhost:8000/v1/models
+
+# 10. 测试多种不同模型名称 (都会使用相同的配置模型)
+echo "测试 1: 传递 gemini-pro"
+curl -X POST -H "Authorization: Bearer officeai-admin-79222376bda3186039336d460f7150c7" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gemini-pro","messages":[{"role":"user","content":"Test 1"}]}' \
+  http://localhost:8000/v1/chat/completions
+
+echo "测试 2: 传递 llama-2-70b"
+curl -X POST -H "Authorization: Bearer officeai-admin-79222376bda3186039336d460f7150c7" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"llama-2-70b","messages":[{"role":"user","content":"Test 2"}]}' \
+  http://localhost:8000/v1/chat/completions
+
+echo "测试 3: 传递随机模型名"
+curl -X POST -H "Authorization: Bearer officeai-admin-79222376bda3186039336d460f7150c7" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"random-model-xyz","messages":[{"role":"user","content":"Test 3"}]}' \
+  http://localhost:8000/v1/chat/completions

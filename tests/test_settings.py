@@ -19,7 +19,8 @@ class IsolatedTestSettings(Settings):
     
     model_config = ConfigDict(
         env_file=str(get_test_env_file()),
-        env_file_encoding='utf-8'
+        env_file_encoding='utf-8',
+        env_ignore_empty=False
     )
 
 
@@ -46,4 +47,6 @@ def create_test_settings_dict():
         "description": "Test model for unit testing",
         "cost_per_1k_input_tokens": 0.001,
         "cost_per_1k_output_tokens": 0.002,
+        "enable_client_auth": False,
+        "allow_anonymous_access": True,
     }

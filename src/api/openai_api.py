@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi.responses import StreamingResponse, JSONResponse
 from typing import Dict, Any
 import orjson as json
 import time
@@ -26,12 +26,19 @@ from src.models.openai import (
 )
 from src.core.model_manager import model_manager
 from src.core.platform_clients import PlatformClientFactory
+from src.auth.client_auth import (
+    verify_api_key, 
+    require_chat_permission, 
+    require_completion_permission, 
+    require_embedding_permission
+)
+from src.config.settings import settings
 
 router = APIRouter(prefix="/v1")
 
 
 @router.get("/models", response_model=ModelListResponse)
-async def list_models():
+async def list_models(key_data: Dict[str, Any] = Depends(verify_api_key)):
     """List available models in OpenAI API format."""
     models = model_manager.get_models_list()
     
@@ -48,7 +55,10 @@ async def list_models():
 
 
 @router.post("/chat/completions")
-async def create_chat_completion(request: ChatCompletionRequest):
+async def create_chat_completion(
+    request: ChatCompletionRequest,
+    key_data: Dict[str, Any] = Depends(require_chat_permission)
+):
     """Create a chat completion, matching OpenAI API format exactly."""
     try:
         # Validate model availability
@@ -163,7 +173,10 @@ async def create_chat_completion(request: ChatCompletionRequest):
 
 
 @router.post("/completions")
-async def create_completion(request: CompletionRequest):
+async def create_completion(
+    request: CompletionRequest,
+    key_data: Dict[str, Any] = Depends(require_completion_permission)
+):
     """Create a completion, matching OpenAI API format exactly."""
     try:
         # Validate model availability
@@ -248,7 +261,10 @@ async def create_completion(request: CompletionRequest):
 
 
 @router.post("/embeddings")
-async def create_embeddings(request: EmbeddingRequest):
+async def create_embeddings(
+    request: EmbeddingRequest,
+    key_data: Dict[str, Any] = Depends(require_embedding_permission)
+):
     """Create embeddings, matching OpenAI API format exactly."""
     try:
         # Validate model availability

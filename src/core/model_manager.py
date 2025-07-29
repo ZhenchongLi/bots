@@ -52,51 +52,55 @@ class ModelManager:
     
     def process_model_request(self, request_data: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
         """
-        Process a request and determine actual model name.
+        Process a request and replace client model name with configured actual model.
         Returns (request_data, actual_model_name)
         """
         if "model" not in request_data:
             raise ValueError("No model specified in request")
         
-        requested_model = request_data["model"]
+        client_requested_model = request_data["model"]
+        actual_model_name = self.config.get("actual_name", "gpt-3.5-turbo")
         
-        # Validate the model configuration
-        is_valid, error_message = self.validate_model_request(requested_model)
+        # Validate the service configuration (not the model name)
+        is_valid, error_message = self.validate_model_request(client_requested_model)
         if not is_valid:
             raise ValueError(error_message)
         
-        # Get actual model name from configuration
-        actual_model_name = self.config.get("actual_name", requested_model)
-        
-        # Update request data with actual model name
+        # Replace client's model name with configured actual model name
         modified_request = request_data.copy()
         modified_request["model"] = actual_model_name
         
         logger.info("Model request processed", 
-                   requested_model=requested_model,
-                   actual_model=actual_model_name,
-                   platform_type=self.config.get("type"))
+                   client_requested_model=client_requested_model,
+                   actual_model_used=actual_model_name,
+                   platform_type=self.config.get("type"),
+                   message="Client model name replaced with configured actual model")
         
         return modified_request, actual_model_name
     
     def get_models_list(self) -> List[Dict[str, Any]]:
-        """Get a list of available models in OpenAI API format."""
+        """Get a list of available models - returns the configured model."""
         models = []
         
-        # Only include model if it's enabled and has api_key
+        # Only include model if service is enabled and has api_key
         if self.config.get("enabled", False) and self.config.get("api_key"):
-            model_name = self.config.get("actual_name", "model")
-            platform_type = self.config.get("type", "unknown")
+            platform_type = self.config.get("type", "proxy")
+            # Convert PlatformType enum to string value if needed
+            if hasattr(platform_type, 'value'):
+                platform_type = platform_type.value
+            
+            # Use the actual configured model name as the ID
+            model_id = self.config.get("actual_name", "gpt-3.5-turbo")
             
             models.append({
-                "id": model_name,
+                "id": model_id,
                 "object": "model",
                 "created": 1677610602,  # Placeholder timestamp
-                "owned_by": platform_type,
-                "root": model_name,
+                "owned_by": "openai",  # Use standard OpenAI ownership for compatibility
+                "root": model_id,
                 "parent": None,
                 "permission": [{
-                    "id": f"modelperm-{model_name}",
+                    "id": f"modelperm-{model_id}",
                     "object": "model_permission",
                     "created": 1677610602,
                     "allow_create_engine": False,
@@ -122,7 +126,8 @@ class ModelManager:
     def get_available_models(self) -> List[str]:
         """Get list of available model names."""
         if self.config.get("enabled", False) and self.config.get("api_key"):
-            return [self.config.get("actual_name", "model")]
+            # Return the actual configured model name
+            return [self.config.get("actual_name", "gpt-3.5-turbo")]
         return []
         
     def get_platform_type(self) -> Optional[str]:

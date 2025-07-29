@@ -20,9 +20,10 @@ from src.models.openai import (
 class TestModelsEndpoint:
     """Test the /v1/models endpoint"""
     
-    def test_list_models_success(self, client):
+    def test_list_models_success(self, test_client):
         """Test successful models listing"""
-        response = client.get("/v1/models")
+        headers = {"Authorization": "Bearer test-api-key"}
+        response = test_client.get("/v1/models", headers=headers)
         
         assert response.status_code == 200
         data = response.json()
@@ -41,9 +42,10 @@ class TestModelsEndpoint:
             assert "created" in model
             assert "owned_by" in model
 
-    def test_list_models_response_model(self, client):
+    def test_list_models_response_model(self, test_client):
         """Test that response can be parsed by Pydantic model"""
-        response = client.get("/v1/models")
+        headers = {"Authorization": "Bearer test-api-key"}
+        response = test_client.get("/v1/models", headers=headers)
         
         assert response.status_code == 200
         
@@ -57,7 +59,7 @@ class TestModelsEndpoint:
 class TestChatCompletionsEndpoint:
     """Test the /v1/chat/completions endpoint"""
     
-    def test_chat_completions_request_validation(self, client):
+    def test_chat_completions_request_validation(self, test_client):
         """Test request validation for chat completions"""
         # Valid request
         valid_payload = {
@@ -77,7 +79,7 @@ class TestChatCompletionsEndpoint:
         assert chat_request.temperature == 0.7
         assert chat_request.max_tokens == 100
 
-    def test_chat_completions_invalid_temperature(self, client):
+    def test_chat_completions_invalid_temperature(self, test_client):
         """Test invalid temperature value"""
         invalid_payload = {
             "model": "gpt-3.5-turbo",
@@ -90,7 +92,7 @@ class TestChatCompletionsEndpoint:
         with pytest.raises(ValueError):
             ChatCompletionRequest.model_validate(invalid_payload)
 
-    def test_chat_completions_model_not_available(self, client, mock_settings):
+    def test_chat_completions_model_not_available(self, test_client, mock_settings):
         """Test when model is not available"""
         with patch('src.core.model_manager.model_manager.is_model_available', return_value=False):
             payload = {
@@ -98,7 +100,8 @@ class TestChatCompletionsEndpoint:
                 "messages": [{"role": "user", "content": "Hello"}]
             }
             
-            response = client.post("/v1/chat/completions", json=payload)
+            headers = {"Authorization": "Bearer test-api-key"}
+            response = test_client.post("/v1/chat/completions", json=payload, headers=headers)
             assert response.status_code == 503
             assert "not available" in response.json()["detail"]
 
@@ -107,7 +110,7 @@ class TestChatCompletionsEndpoint:
     @patch('src.core.model_manager.model_manager.is_model_available')
     @patch('src.core.model_manager.model_manager.get_model_config')
     def test_chat_completions_success(self, mock_get_config, mock_available, 
-                                     mock_process, mock_create_client, client):
+                                     mock_process, mock_create_client, test_client):
         """Test successful chat completion"""
         # Setup mocks
         mock_available.return_value = True
@@ -149,7 +152,8 @@ class TestChatCompletionsEndpoint:
             "messages": [{"role": "user", "content": "Hello"}]
         }
         
-        response = client.post("/v1/chat/completions", json=payload)
+        headers = {"Authorization": "Bearer test-api-key"}
+        response = test_client.post("/v1/chat/completions", json=payload, headers=headers)
         
         assert response.status_code == 200
         data = response.json()
@@ -167,7 +171,7 @@ class TestChatCompletionsEndpoint:
 class TestCompletionsEndpoint:
     """Test the /v1/completions endpoint"""
     
-    def test_completions_request_validation(self, client):
+    def test_completions_request_validation(self, test_client):
         """Test request validation for completions"""
         valid_payload = {
             "model": "text-davinci-003",
@@ -182,7 +186,7 @@ class TestCompletionsEndpoint:
         assert completion_request.max_tokens == 50
         assert completion_request.temperature == 0.7
 
-    def test_completions_model_not_available(self, client):
+    def test_completions_model_not_available(self, test_client):
         """Test when model is not available"""
         with patch('src.core.model_manager.model_manager.is_model_available', return_value=False):
             payload = {
@@ -190,7 +194,8 @@ class TestCompletionsEndpoint:
                 "prompt": "Hello"
             }
             
-            response = client.post("/v1/completions", json=payload)
+            headers = {"Authorization": "Bearer test-api-key"}
+            response = test_client.post("/v1/completions", json=payload, headers=headers)
             assert response.status_code == 503
 
     @patch('src.core.platform_clients.PlatformClientFactory.create_client')
@@ -198,7 +203,7 @@ class TestCompletionsEndpoint:
     @patch('src.core.model_manager.model_manager.is_model_available')
     @patch('src.core.model_manager.model_manager.get_model_config')
     def test_completions_success(self, mock_get_config, mock_available,
-                                mock_process, mock_create_client, client):
+                                mock_process, mock_create_client, test_client):
         """Test successful completion"""
         # Setup mocks
         mock_available.return_value = True
@@ -237,7 +242,8 @@ class TestCompletionsEndpoint:
             "prompt": "Hello"
         }
         
-        response = client.post("/v1/completions", json=payload)
+        headers = {"Authorization": "Bearer test-api-key"}
+        response = test_client.post("/v1/completions", json=payload, headers=headers)
         
         assert response.status_code == 200
         data = response.json()
@@ -255,7 +261,7 @@ class TestCompletionsEndpoint:
 class TestEmbeddingsEndpoint:
     """Test the /v1/embeddings endpoint"""
     
-    def test_embeddings_request_validation(self, client):
+    def test_embeddings_request_validation(self, test_client):
         """Test request validation for embeddings"""
         valid_payload = {
             "model": "text-embedding-ada-002",
@@ -268,7 +274,7 @@ class TestEmbeddingsEndpoint:
         assert embedding_request.input == "Hello, world!"
         assert embedding_request.encoding_format == "float"
 
-    def test_embeddings_model_not_available(self, client):
+    def test_embeddings_model_not_available(self, test_client):
         """Test when model is not available"""
         with patch('src.core.model_manager.model_manager.is_model_available', return_value=False):
             payload = {
@@ -276,7 +282,8 @@ class TestEmbeddingsEndpoint:
                 "input": "Hello"
             }
             
-            response = client.post("/v1/embeddings", json=payload)
+            headers = {"Authorization": "Bearer test-api-key"}
+            response = test_client.post("/v1/embeddings", json=payload, headers=headers)
             assert response.status_code == 503
 
     @patch('src.core.platform_clients.PlatformClientFactory.create_client')
@@ -284,7 +291,7 @@ class TestEmbeddingsEndpoint:
     @patch('src.core.model_manager.model_manager.is_model_available')
     @patch('src.core.model_manager.model_manager.get_model_config')
     def test_embeddings_success(self, mock_get_config, mock_available,
-                               mock_process, mock_create_client, client):
+                               mock_process, mock_create_client, test_client):
         """Test successful embedding creation"""
         # Setup mocks
         mock_available.return_value = True
@@ -320,7 +327,8 @@ class TestEmbeddingsEndpoint:
             "input": "Hello"
         }
         
-        response = client.post("/v1/embeddings", json=payload)
+        headers = {"Authorization": "Bearer test-api-key"}
+        response = test_client.post("/v1/embeddings", json=payload, headers=headers)
         
         assert response.status_code == 200
         data = response.json()
@@ -336,10 +344,11 @@ class TestEmbeddingsEndpoint:
 class TestOpenAICompatibilityIntegration:
     """Integration tests for OpenAI API compatibility"""
     
-    def test_error_response_format(self, client):
+    def test_error_response_format(self, test_client):
         """Test that error responses match OpenAI format"""
         # Test with invalid request body
-        response = client.post("/v1/chat/completions", json={"invalid": "data"})
+        headers = {"Authorization": "Bearer test-api-key"}
+        response = test_client.post("/v1/chat/completions", json={"invalid": "data"}, headers=headers)
         
         # Should return 422 for validation error
         assert response.status_code == 422
@@ -347,10 +356,11 @@ class TestOpenAICompatibilityIntegration:
         # FastAPI validation error format is different from OpenAI,
         # but our custom error handling should format it properly
 
-    def test_openai_library_compatibility_structure(self, client):
+    def test_openai_library_compatibility_structure(self, test_client):
         """Test that responses are structured for OpenAI library compatibility"""
         # Test models endpoint structure
-        response = client.get("/v1/models")
+        headers = {"Authorization": "Bearer test-api-key"}
+        response = test_client.get("/v1/models", headers=headers)
         data = response.json()
         
         # Must have the exact structure expected by OpenAI library
@@ -379,12 +389,14 @@ class TestOpenAICompatibilityIntegration:
             "input": "test"
         })
     ])
-    def test_endpoint_accessibility(self, client, endpoint, method, payload):
+    def test_endpoint_accessibility(self, test_client, endpoint, method, payload):
         """Test that all OpenAI endpoints are accessible"""
         if method == "GET":
-            response = client.get(endpoint)
+            headers = {"Authorization": "Bearer test-api-key"}
+            response = test_client.get(endpoint, headers=headers)
         else:
-            response = client.post(endpoint, json=payload)
+            headers = {"Authorization": "Bearer test-api-key"}
+            response = test_client.post(endpoint, json=payload, headers=headers)
         
         # Should not return 404 (endpoint exists)
         assert response.status_code != 404

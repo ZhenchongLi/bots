@@ -173,7 +173,7 @@ class TestModelManager:
         
         assert len(models) == 1
         model = models[0]
-        assert model["id"] == "gpt-4"
+        assert model["id"] == "gpt-4"  # Should match actual_name from test config
         assert model["object"] == "model"
         assert model["owned_by"] == "openai"
         assert model["root"] == "gpt-4"
@@ -194,7 +194,7 @@ class TestModelManager:
         manager.config = test_config
         
         models = manager.get_available_models()
-        assert models == ["gpt-4"]
+        assert models == ["gpt-4"]  # Should match actual_name from test config
     
     def test_get_available_models_disabled(self, disabled_settings):
         """Test getting available models when disabled."""
@@ -242,18 +242,53 @@ class TestModelManager:
             assert config["actual_name"] == "claude-3"
     
     def test_model_request_with_different_names(self, openai_settings):
-        """Test processing requests with different model names."""
-        test_config = create_test_manager_config()
+        """Test processing requests with different model names - all get replaced with actual_name."""
+        test_config = create_test_manager_config(actual_name="Qwen/Qwen3-32B")
         manager = ModelManager()
         manager.config = test_config
         
-        # Test different input model names
-        test_cases = ["gpt-3.5-turbo", "gpt-4", "custom-model"]
+        # Test various client model names - all should be replaced
+        test_cases = [
+            "gpt-4",
+            "gpt-3.5-turbo", 
+            "claude-3-opus",
+            "claude-3-sonnet",
+            "gemini-pro",
+            "llama-2-70b",
+            "mistral-7b",
+            "random-model-xyz",
+            "officeai",
+            "任意中文模型名"
+        ]
         
-        for input_model in test_cases:
-            request_data = {"model": input_model, "messages": []}
+        for client_model in test_cases:
+            request_data = {"model": client_model, "messages": [{"role": "user", "content": "test"}]}
             processed_data, actual_model = manager.process_model_request(request_data)
             
-            # All should be mapped to the configured actual_name
-            assert processed_data["model"] == "gpt-4"
-            assert actual_model == "gpt-4"
+            # All client model names should be replaced with configured actual_name
+            assert processed_data["model"] == "Qwen/Qwen3-32B", f"Client model '{client_model}' was not replaced correctly"
+            assert actual_model == "Qwen/Qwen3-32B", f"Actual model should be 'Qwen/Qwen3-32B' for client model '{client_model}'"
+            assert processed_data["messages"] == [{"role": "user", "content": "test"}]
+    
+    def test_model_replacement_logging(self, openai_settings, capsys):
+        """Test that model replacement is properly logged."""
+        test_config = create_test_manager_config(actual_name="Qwen/Qwen3-32B")
+        manager = ModelManager()
+        manager.config = test_config
+        
+        request_data = {"model": "gpt-4", "messages": []}
+        
+        # Call the method - structlog output goes to stdout
+        processed_data, actual_model = manager.process_model_request(request_data)
+        
+        # Capture the stdout output from structlog
+        captured = capsys.readouterr()
+        
+        # Check that the log contains information about model replacement
+        assert "Model request processed" in captured.out, f"Expected log message not found in output: {captured.out}"
+        assert "client_requested_model=gpt-4" in captured.out, "Client requested model not logged"
+        assert "actual_model_used=Qwen/Qwen3-32B" in captured.out, "Actual model used not logged"
+        
+        # Verify the replacement happened
+        assert processed_data["model"] == "Qwen/Qwen3-32B"
+        assert actual_model == "Qwen/Qwen3-32B"

@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     log_file_path: str = "./logs/proxy.log"
     log_retention_days: int = 30
     
+    # Authentication Configuration
+    enable_client_auth: bool = True
+    allow_anonymous_access: bool = False
+    
     # Single Model Configuration
     type: PlatformType = PlatformType.OPENAI
     api_key: str = ""
@@ -37,7 +41,7 @@ class Settings(BaseSettings):
     
     # Model-specific settings
     actual_name: str = "gpt-3.5-turbo"
-    display_name: Optional[str] = None
+    display_name: Optional[str] = "officeai"
     description: Optional[str] = None
     max_tokens: Optional[int] = 4096
     supports_streaming: bool = True

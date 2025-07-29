@@ -8,6 +8,7 @@ import tempfile
 
 from src.main import create_app
 from src.config.settings import Settings, PlatformType
+from src.auth.client_auth import APIKeyManager
 from tests.test_settings import IsolatedTestSettings, create_test_settings_dict
 
 
@@ -80,12 +81,35 @@ def mock_settings(test_settings):
 
 
 @pytest.fixture
-def client(mock_settings):
+def test_client(mock_settings):
     """Create a test client."""
     with patch('src.database.connection.init_db'):
         app = create_app()
         with TestClient(app) as test_client:
             yield test_client
+
+@pytest.fixture
+def api_key_manager():
+    """Create a test API key manager."""
+    return APIKeyManager()
+
+@pytest.fixture
+def test_api_key(api_key_manager):
+    """Create a test API key for authenticated requests."""
+    return api_key_manager.create_api_key(
+        key_id="test_key",
+        description="Test API key",
+        permissions=["chat", "completion", "embedding"]
+    )
+
+@pytest.fixture
+def admin_api_key(api_key_manager):
+    """Create an admin API key for authenticated requests."""
+    return api_key_manager.create_api_key(
+        key_id="admin_test_key",
+        description="Admin test API key",
+        permissions=["admin", "chat", "completion", "embedding"]
+    )
 
 
 @pytest.fixture
