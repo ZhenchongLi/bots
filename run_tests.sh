@@ -31,6 +31,9 @@ echo "Database: In-memory SQLite"
 echo "API Base URL: https://api.test-openai.com/v1"
 echo ""
 
+# Unset proxy environment variables to avoid interference with tests
+unset http_proxy https_proxy all_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY
+
 uv run pytest tests/ -v --cov=src --cov-report=term-missing --cov-report=html:htmlcov
 
 # Check if tests passed

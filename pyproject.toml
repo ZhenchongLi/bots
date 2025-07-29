@@ -32,6 +32,7 @@ dependencies = [
     "structlog>=23.0.0",
     "greenlet>=3.2.3",
     "pytest-asyncio>=1.1.0",
+    "openai>=1.0.0",
 ]
 
 [project.optional-dependencies]

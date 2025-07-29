@@ -74,19 +74,17 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             processing_time=processing_time,
         )
         
-        # Log to database asynchronously
-        asyncio.create_task(
-            self.log_to_database(
-                method=method,
-                path=path,
-                client_ip=client_ip,
-                request_headers=headers,
-                request_body=request_body,
-                response_status=response_status,
-                response_headers=response_headers,
-                response_body=response_body,
-                processing_time=processing_time,
-            )
+        # Log to database
+        await self.log_to_database(
+            method=method,
+            path=path,
+            client_ip=client_ip,
+            request_headers=headers,
+            request_body=request_body,
+            response_status=response_status,
+            response_headers=response_headers,
+            response_body=response_body,
+            processing_time=processing_time,
         )
         
         return response

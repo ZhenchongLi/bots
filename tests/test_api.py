@@ -203,25 +203,22 @@ class TestAPIEndpoints:
         assert response.status_code == 200
         assert "text/event-stream" in response.headers.get("content-type", "")
     
-    def test_proxy_get_request(self, client, mock_settings):
+    @patch('src.core.model_manager.model_manager.get_models_list')
+    def test_proxy_get_request(self, mock_get_models, client, mock_settings):
         """Test GET request to proxy endpoint."""
-        with patch('src.core.platform_clients.PlatformClientFactory.create_client') as mock_factory:
-            mock_client = MagicMock()
-            mock_client.make_request = AsyncMock(return_value={
-                "json": {"models": []},
-                "status_code": 200,
-                "headers": {"content-type": "application/json"},
-                "content": None
-            })
-            mock_factory.return_value = mock_client
-            
-            response = client.get("/v1/models")
-            
-            assert response.status_code == 200
-            mock_client.make_request.assert_called_once()
-            call_args = mock_client.make_request.call_args
-            assert call_args[1]["method"] == "GET"
-            assert call_args[1]["path"] == "/v1/models"
+        mock_get_models.return_value = [{
+            "id": "gpt-3.5-turbo-test",
+            "object": "model",
+            "owned_by": "openai"
+        }]
+
+        response = client.get("/v1/models")
+
+        assert response.status_code == 200
+        mock_get_models.assert_called_once()
+        data = response.json()
+        assert len(data['data']) == 1
+        assert data['data'][0]['id'] == 'gpt-3.5-turbo-test'
     
     def test_proxy_put_request(self, client, mock_settings):
         """Test PUT request to proxy endpoint."""

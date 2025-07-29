@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 from src.config.settings import settings
 from src.api.proxy import router as proxy_router
+from src.api.openai_api import router as openai_router
 from src.logging.middleware import LoggingMiddleware
 from src.logging.config import configure_logging
 from src.database.connection import init_db
@@ -38,6 +39,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    app.include_router(openai_router)
     app.include_router(proxy_router)
 
     return app
