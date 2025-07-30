@@ -7,6 +7,7 @@ from src.config.settings import settings
 from src.api.proxy import router as proxy_router
 from src.api.openai_api import router as openai_router
 from src.api.auth_api import router as auth_router
+from src.api.conversation_api import router as conversation_router
 from src.log_config.middleware import LoggingMiddleware
 from src.log_config.config import configure_logging
 from src.api.responses import ORJSONResponse
@@ -63,6 +64,7 @@ def create_app() -> FastAPI:
 
     app.include_router(openai_router)
     app.include_router(auth_router)
+    app.include_router(conversation_router)
     app.include_router(proxy_router)
 
     return app
