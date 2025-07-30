@@ -6,17 +6,29 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104%2B-009688)](https://fastapi.tiangolo.com/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-一个高性能、生产就绪的单模型代理服务，提供 OpenAI API 兼容接口，支持多平台 AI 服务透明转发和完整的请求日志记录。
+一个高性能、生产就绪的统一 AI API 代理服务，提供完全兼容 OpenAI API 的接口，支持多平台 AI 服务（OpenAI、Claude、Gemini、Azure OpenAI 等）透明转发，具备完整的请求日志记录和监控功能。
 
-## ✨ 功能特性
+> **🎯 核心优势**：统一接口、多平台支持、完整日志、生产就绪
 
-- **🎯 单模型代理**: 专注于单个 AI 模型的代理服务，配置简单，性能优异
-- **🌐 多平台支持**: 支持 OpenAI、Claude、Gemini、Azure OpenAI 等多个 AI 平台
-- **🔄 格式转换**: 自动处理不同 AI 服务间的 API 格式差异，统一接口体验
-- **📝 完整日志**: 自动记录每个请求和响应到 SQLite 数据库和结构化日志文件
-- **⚡ 异步处理**: 基于 FastAPI 的高性能异步处理，支持并发请求
-- **🛡️ 生产就绪**: 91% 测试覆盖率，55 个单元测试，零警告的干净代码
-- **🔧 零配置启动**: 开箱即用的环境隔离和容器化部署支持
+## ✨ 核心功能
+
+### 🚀 代理服务
+- **🎯 统一接口**: 提供标准 OpenAI API 兼容接口，支持所有主流客户端
+- **🌐 多平台支持**: 支持 OpenAI、Claude (Anthropic)、Gemini (Google)、Azure OpenAI 等
+- **🔄 智能转换**: 自动处理不同 AI 服务间的 API 格式差异和参数映射
+- **⚡ 高性能**: 基于 FastAPI 异步框架，支持高并发请求处理
+
+### 📊 监控日志
+- **📝 完整记录**: 自动记录每个请求和响应到 SQLite 数据库
+- **🔍 结构化日志**: JSON 格式日志文件，便于分析和监控
+- **📈 性能监控**: 内置请求处理时间、吞吐量和错误率统计
+- **🔐 隐私保护**: 自动过滤敏感信息，保护 API 密钥和用户数据
+
+### 🛡️ 生产特性
+- **✅ 高质量**: 91% 测试覆盖率，55 个单元测试，零警告代码
+- **🐳 容器化**: 完整的 Docker 支持，一键部署
+- **🔧 易配置**: 环境变量配置，支持多环境部署
+- **📦 开箱即用**: 零配置启动，自动环境隔离
 
 ## 🚀 快速开始
 
@@ -24,8 +36,8 @@
 
 ```bash
 # 1. 克隆项目
-git clone <your-repo-url>
-cd bots
+git clone https://github.com/your-username/openai-proxy.git
+cd openai-proxy
 
 # 2. 安装 uv（如果尚未安装）
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -33,27 +45,32 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # 3. 安装依赖
 uv sync
 
-# 4. 配置环境变量
+# 4. 配置环境变量（参考下方配置说明）
 cp .env.example .env
-# 编辑 .env 文件，设置你的 API 密钥
+# 编辑 .env 文件，设置你的 API 密钥和配置
 
 # 5. 启动服务
 ./run.sh
 ```
 
+服务启动后，访问 http://localhost:8000/docs 查看 API 文档。
+
 ### 方法二：使用 Docker
 
 ```bash
 # 1. 克隆项目
-git clone <your-repo-url>
-cd bots
+git clone https://github.com/your-username/openai-proxy.git
+cd openai-proxy
 
 # 2. 配置环境变量
 cp .env.example .env
-# 编辑 .env 文件
+# 编辑 .env 文件，设置API密钥等配置
 
 # 3. 使用 Docker Compose 启动
 docker-compose up -d
+
+# 4. 检查服务状态
+curl http://localhost:8000/health
 ```
 
 ### 方法三：直接运行
