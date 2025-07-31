@@ -11,6 +11,7 @@ class PlatformType(str, Enum):
     GOOGLE = "google"
     AZURE_OPENAI = "azure_openai"
     COHERE = "cohere"
+    COZE = "coze"
     CUSTOM = "custom"
 
 
@@ -48,6 +49,7 @@ class Settings(BaseSettings):
     supports_function_calling: bool = True
     cost_per_1k_input_tokens: Optional[float] = None
     cost_per_1k_output_tokens: Optional[float] = None
+    
 
     @field_validator('cost_per_1k_input_tokens', 'cost_per_1k_output_tokens', mode='before')
     def parse_cost_fields(cls, v):

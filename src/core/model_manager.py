@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional, Any, Tuple
 from src.config.settings import settings
 import structlog
+import os
 
 logger = structlog.get_logger()
 
@@ -11,7 +12,7 @@ class ModelManager:
     
     def _get_model_config(self) -> Dict[str, Any]:
         """Get the single model configuration from settings."""
-        return {
+        config = {
             "type": settings.type,
             "api_key": settings.api_key,
             "base_url": settings.base_url,
@@ -27,6 +28,30 @@ class ModelManager:
             "cost_per_1k_input_tokens": settings.cost_per_1k_input_tokens,
             "cost_per_1k_output_tokens": settings.cost_per_1k_output_tokens,
         }
+        
+        # Add platform-specific settings from environment variables
+        self._add_platform_specific_config(config)
+        
+        return config
+    
+    def _add_platform_specific_config(self, config: Dict[str, Any]) -> None:
+        """Add platform-specific configuration from environment variables."""
+        platform_type = config.get("type")
+        
+        # Handle platform-specific settings
+        if platform_type == "coze":
+            # Coze Bot specific settings
+            bot_id = os.getenv("BOT_ID")
+            conversation_id = os.getenv("CONVERSATION_ID", "")
+            
+            if bot_id:
+                config["bot_id"] = bot_id
+            if conversation_id:
+                config["conversation_id"] = conversation_id
+        
+        # Add more platform-specific settings as needed
+        # elif platform_type == "other_platform":
+        #     config["other_setting"] = os.getenv("OTHER_SETTING")
     
     def is_model_available(self) -> bool:
         """Check if the model is available and enabled."""

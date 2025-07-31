@@ -14,7 +14,7 @@
 
 ### 🚀 代理服务
 - **🎯 统一接口**: 提供标准 OpenAI API 兼容接口，支持所有主流客户端
-- **🌐 多平台支持**: 支持 OpenAI、Claude (Anthropic)、Gemini (Google)、Azure OpenAI 等
+- **🌐 多平台支持**: 支持 OpenAI、Claude (Anthropic)、Gemini (Google)、Azure OpenAI、Coze Bot 等
 - **🔄 智能转换**: 自动处理不同 AI 服务间的 API 格式差异和参数映射
 - **⚡ 高性能**: 基于 FastAPI 异步框架，支持高并发请求处理
 
@@ -161,6 +161,19 @@ TYPE=azure_openai
 API_KEY=your-azure-api-key
 BASE_URL=https://your-resource.openai.azure.com/openai/deployments/your-deployment
 ACTUAL_NAME=gpt-4
+```
+</details>
+
+<details>
+<summary>🤖 Coze Bot 配置</summary>
+
+```env
+TYPE=coze
+API_KEY=your-coze-api-key
+BASE_URL=https://api.coze.com/v1
+BOT_ID=your-bot-id
+CONVERSATION_ID=optional-conversation-id
+ACTUAL_NAME=coze-bot
 ```
 </details>
 
@@ -483,7 +496,7 @@ rm data/proxy.db && uv run python -c "from src.database.connection import init_d
 
 ### v0.1.0
 - ✨ 初始版本发布
-- ✅ 支持 OpenAI、Claude、Gemini 等多平台
+- ✅ 支持 OpenAI、Claude、Gemini、Coze Bot 等多平台
 - ✅ 完整的测试覆盖（91%）
 - ✅ Docker 容器化支持
 - ✅ 结构化日志和监控

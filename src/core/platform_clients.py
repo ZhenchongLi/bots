@@ -300,6 +300,8 @@ class GoogleClient(BasePlatformClient):
         return content_type.startswith("application/json")
 
 
+
+
 class PlatformClientFactory:
     """Factory for creating platform-specific clients."""
     
@@ -313,6 +315,21 @@ class PlatformClientFactory:
     @classmethod
     def create_client(cls, platform_type: str, platform_config: Dict[str, Any]) -> BasePlatformClient:
         """Create a client for the specified platform type."""
+        # Try adapter system first for supported platforms
+        try:
+            from src.adapters.proxy import AdapterProxy
+            from src.adapters.manager import adapter_manager
+            
+            if adapter_manager.is_platform_supported(platform_type):
+                logger.info("Using adapter system for platform", platform=platform_type)
+                return AdapterProxy(platform_config)
+        except ImportError:
+            logger.warning("Adapter system not available, using legacy clients")
+        except Exception as e:
+            logger.warning("Failed to use adapter system, falling back to legacy", 
+                          platform=platform_type, error=str(e))
+        
+        # Fallback to legacy clients
         client_class = cls._clients.get(platform_type)
         if not client_class:
             # Default to OpenAI client for custom platforms
