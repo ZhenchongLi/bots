@@ -37,8 +37,8 @@
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/your-username/openai-proxy.git
-cd openai-proxy
+git clone <your-repository-url>
+cd bots
 
 # 2. 安装 uv（如果尚未安装）
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -60,8 +60,8 @@ cp .env.example .env
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/your-username/openai-proxy.git
-cd openai-proxy
+git clone <your-repository-url>
+cd bots
 
 # 2. 配置环境变量
 cp .env.example .env
@@ -117,6 +117,8 @@ MAX_TOKENS=4096
 SUPPORTS_STREAMING=true
 SUPPORTS_FUNCTION_CALLING=true
 ```
+
+> **🔑 认证说明**: 启动服务时，系统会自动生成默认管理员 API 密钥并显示在控制台。请妥善保存此密钥，用于后续的 API 调用和管理操作。
 
 ### 多平台配置示例
 
@@ -194,6 +196,9 @@ ACTUAL_NAME=llama2
 
 - **交互式文档**: http://localhost:8000/docs
 - **ReDoc 文档**: http://localhost:8000/redoc
+- **客户端使用指南**: [CLIENT_USAGE_GUIDE.md](CLIENT_USAGE_GUIDE.md)
+- **对话功能指南**: [CONVERSATION_USAGE_GUIDE.md](CONVERSATION_USAGE_GUIDE.md)
+- **开发指南**: [CLAUDE.md](CLAUDE.md)
 
 ### 核心接口
 
@@ -203,6 +208,9 @@ ACTUAL_NAME=llama2
 | `/models` | GET | 获取可用模型列表 | `curl http://localhost:8000/models` |
 | `/chat/completions` | POST | 聊天完成接口 | 见下方示例 |
 | `/embeddings` | POST | 文本嵌入接口 | 兼容 OpenAI 格式 |
+| `/conversations/` | POST | 创建对话会话 | 支持会话管理 |
+| `/conversations/user/{user_id}` | GET | 获取用户对话列表 | 分页查询支持 |
+| `/auth/keys` | GET/POST | API 密钥管理 | 需要管理员权限 |
 
 ### 使用示例
 
