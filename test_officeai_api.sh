@@ -1,15 +1,30 @@
 #!/bin/bash
 
 # OfficeAI API 测试脚本
-# API Key: officeai-admin-79222376bda3186039336d460f7150c7
+# 注意：API密钥现在由系统自动生成和管理，每次启动可能不同
+# 请从服务器启动日志中获取当前的默认管理员API密钥
 
-API_KEY="default-441e7c0b5a98e746662047cb948a4431"
+# 默认使用环境变量中的API密钥，如果没有则提示用户
+if [ -z "$OFFICEAI_ADMIN_KEY" ]; then
+    echo "⚠️  请设置环境变量 OFFICEAI_ADMIN_KEY"
+    echo "📋 从服务器启动日志中复制默认管理员API密钥，例如："
+    echo "   export OFFICEAI_ADMIN_KEY='officeai-admin-xxxxxxxxxxxxx'"
+    echo ""
+    echo "💡 或者直接设置并运行："
+    echo "   OFFICEAI_ADMIN_KEY='your-admin-key-here' ./test_officeai_api.sh"
+    echo ""
+    exit 1
+fi
+
+API_KEY="$OFFICEAI_ADMIN_KEY"
 BASE_URL="http://localhost:8000"
 
 echo "🤖 OfficeAI API 测试开始"
 echo "=================================="
+echo "🔑 使用API密钥: ${API_KEY:0:20}..."
 echo "📝 注意：不管客户端传递什么模型名，服务端都会使用 .env 配置的实际模型"
 echo "🔄 模型名映射：客户端任意模型名 ➜ 服务端配置的 ACTUAL_NAME 模型"
+echo "🗄️  客户端信息已持久化存储在数据库中"
 
 echo ""
 echo "1. 📋 测试模型列表 (返回代理模型信息)"
@@ -111,3 +126,14 @@ curl -H "Authorization: Bearer invalid-key-123" $BASE_URL/v1/models | jq .
 echo ""
 echo "🎉 测试完成!"
 echo "=================================="
+echo ""
+echo "📋 关于新的客户端认证系统："
+echo "  • API密钥现在持久化存储在数据库中"
+echo "  • 服务启动时自动检查并创建默认客户端"
+echo "  • 同一个数据库实例重启后API密钥保持不变"
+echo "  • 支持通过管理API创建和管理多个客户端密钥"
+echo ""
+echo "🔧 管理建议："
+echo "  • 生产环境中应创建新的管理员密钥并撤销默认密钥"
+echo "  • 为不同应用创建具有特定权限的专用API密钥"
+echo "  • 定期轮换API密钥以确保安全性"

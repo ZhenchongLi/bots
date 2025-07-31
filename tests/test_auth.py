@@ -13,6 +13,9 @@ class TestAPIKeyManager:
     def setup_method(self):
         """Set up test fixtures."""
         self.manager = APIKeyManager()
+        # For testing, we'll manually load a fallback key since database may not be available
+        self.manager._api_keys = {}
+        self.manager._default_admin_key = None
     
     def test_generate_api_key_default_prefix(self):
         """Test API key generation with default prefix."""
@@ -131,8 +134,8 @@ class TestAPIKeyManager:
         
         keys = self.manager.list_api_keys()
         
-        # Should have at least our 2 keys plus the default admin key
-        assert len(keys) >= 3
+        # Should have exactly our 2 keys (no default admin key in test environment)
+        assert len(keys) == 2
         
         # Check that keys are masked
         for masked_key, data in keys.items():
@@ -171,25 +174,80 @@ class TestAPIKeyManager:
         """Test permission checking with invalid key."""
         assert not self.manager.has_permission("invalid-key", "chat")
     
-    def test_default_admin_key_created(self):
-        """Test that default admin key is created."""
+    def test_default_admin_key_not_loaded_by_default(self):
+        """Test that default admin key is not loaded in test environment."""
         keys = self.manager.list_api_keys()
         
-        # Should have at least one key (the default admin)
-        assert len(keys) >= 1
-        
-        # Check that there's an admin key
-        admin_keys = [
-            data for data in keys.values() 
-            if "admin" in data.get("permissions", [])
-        ]
-        assert len(admin_keys) >= 1
+        # Should have no keys initially in test environment
+        assert len(keys) == 0
     
-    def test_get_default_admin_key(self):
-        """Test getting the default admin key."""
+    def test_get_default_admin_key_not_available_initially(self):
+        """Test getting the default admin key when not loaded."""
         default_key = self.manager.get_default_admin_key()
-        assert default_key != 'Not available'
-        assert default_key.startswith("officeai-admin-")
+        # Since we set _default_admin_key to None in setup, it should return 'Not available'
+        assert default_key == 'Not available' or default_key is None
+    
+    @pytest.mark.asyncio
+    async def test_load_default_keys_from_database(self):
+        """Test loading default keys from database."""
+        from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+        from sqlalchemy.orm import sessionmaker
+        from src.models.client import Client
+        from src.models.request_log import Base
+        
+        # Create in-memory database
+        engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        
+        AsyncSessionLocal = sessionmaker(
+            engine, class_=AsyncSession, expire_on_commit=False
+        )
+        
+        # Create a default client
+        async with AsyncSessionLocal() as session:
+            default_client = Client(
+                name="default_client",
+                api_key="test-default-key-123",
+                is_default=True,
+                is_active=True
+            )
+            session.add(default_client)
+            await session.commit()
+        
+        # Mock the database connection
+        with patch('src.database.connection.AsyncSessionLocal', AsyncSessionLocal):
+            # Load keys from database
+            await self.manager._load_default_keys()
+            
+            # Verify key was loaded
+            assert "test-default-key-123" in self.manager._api_keys
+            key_data = self.manager._api_keys["test-default-key-123"]
+            assert key_data["key_id"] == "default_admin"
+            assert key_data["description"] == "Default admin key from database"
+            assert "admin" in key_data["permissions"]
+            
+            # Verify default admin key is set
+            assert self.manager.get_default_admin_key() == "test-default-key-123"
+        
+        await engine.dispose()
+    
+    @pytest.mark.asyncio
+    async def test_load_default_keys_fallback_when_no_database(self):
+        """Test fallback behavior when database is not available."""
+        # Mock database connection to raise an exception
+        with patch('src.database.connection.AsyncSessionLocal', side_effect=Exception("Database not available")):
+            # Load keys should fall back to creating a temporary key
+            await self.manager._load_default_keys()
+            
+            # Verify fallback key was created
+            assert len(self.manager._api_keys) == 1
+            fallback_key = self.manager.get_default_admin_key()
+            assert fallback_key.startswith("officeai-admin-")
+            
+            key_data = self.manager._api_keys[fallback_key]
+            assert key_data["key_id"] == "default_admin"
+            assert key_data["description"] == "Temporary admin key - database unavailable"
 
 
 class TestAuthDependencies:
