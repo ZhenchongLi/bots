@@ -13,11 +13,13 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
+# Add common uv installation paths to PATH
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+
 # Check if uv is installed
 if ! command -v uv &> /dev/null; then
     echo "uv is not installed. Installing uv..."
     curl -LsSf https://astral.sh/uv/install.sh | sh
-    export PATH="$HOME/.cargo/bin:$PATH"
 else
     echo "uv is already installed."
 fi
