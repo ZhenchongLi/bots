@@ -19,12 +19,27 @@ def configure_logging():
     log_file_path = Path(settings.log_file_path)
     log_file_path.parent.mkdir(parents=True, exist_ok=True)
     
-    # Configure standard logging
-    logging.basicConfig(
-        format="%(message)s",
-        stream=sys.stdout,
-        level=getattr(logging, settings.log_level.upper()),
-    )
+    # Configure standard logging with both console and file output
+    logger = logging.getLogger()
+    logger.setLevel(getattr(logging, settings.log_level.upper()))
+    
+    # Remove existing handlers to avoid duplicates
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+    
+    # Console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(getattr(logging, settings.log_level.upper()))
+    console_formatter = logging.Formatter("%(message)s")
+    console_handler.setFormatter(console_formatter)
+    logger.addHandler(console_handler)
+    
+    # File handler
+    file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
+    file_handler.setLevel(getattr(logging, settings.log_level.upper()))
+    file_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    file_handler.setFormatter(file_formatter)
+    logger.addHandler(file_handler)
     
     # Configure structlog
     structlog.configure(
