@@ -193,7 +193,7 @@ class TestAPIKeyManager:
         from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
         from sqlalchemy.orm import sessionmaker
         from src.models.client import Client
-        from src.models.request_log import Base
+        from src.models.conversation import Base
         
         # Create in-memory database
         engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)

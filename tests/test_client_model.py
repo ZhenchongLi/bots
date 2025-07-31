@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select
 
 from src.models.client import Client
-from src.models.request_log import Base
+from src.models.conversation import Base
 from src.database.connection import init_default_client
 
 

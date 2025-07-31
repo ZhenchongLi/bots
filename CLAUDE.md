@@ -135,7 +135,6 @@ src/
 │   ├── client.py         # 客户端模型
 │   ├── conversation.py   # 对话模型
 │   ├── openai.py         # OpenAI 模型
-│   └── request_log.py    # 请求日志模型
 └── main.py               # 应用入口点
 ```
 
@@ -315,7 +314,7 @@ curl http://localhost:8000/health
 # 查看数据库内容
 uv run python -c "
 from src.database.connection import get_db_session
-from src.models.request_log import RequestLog
+from src.models.conversation import ConversationMessage
 async def check_logs():
     async with get_db_session() as session:
         # 查询逻辑

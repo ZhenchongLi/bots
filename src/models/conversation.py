@@ -1,8 +1,9 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.sql import func
 from datetime import datetime, timezone
-from .request_log import Base
+
+Base = declarative_base()
 
 
 class Conversation(Base):

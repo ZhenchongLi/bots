@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from src.config.settings import settings
-from src.models.request_log import Base
+from src.models.conversation import Base
 from src.models.conversation import Conversation, ConversationMessage
 from src.models.client import Client
 from sqlalchemy import select

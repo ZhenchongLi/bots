@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean
 from sqlalchemy.sql import func
 from datetime import datetime, timezone
-from src.models.request_log import Base
+from src.models.conversation import Base
 
 
 class Client(Base):

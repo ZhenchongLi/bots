@@ -268,7 +268,6 @@ curl http://localhost:8000/chat/completions \\
 │   │   ├── config.py      # 日志配置
 │   │   └── middleware.py  # 日志中间件
 │   ├── models/            # 数据模型
-│   │   ├── request_log.py # 请求日志模型
 │   │   ├── conversation.py # 对话模型
 │   │   └── client.py      # 客户端模型
 │   └── main.py           # 应用入口点

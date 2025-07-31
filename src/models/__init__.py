@@ -1,4 +1,4 @@
-from .request_log import RequestLog, Base
-from .conversation import Conversation, ConversationMessage
+from .conversation import Conversation, ConversationMessage, Base  
+from .client import Client
 
-__all__ = ["RequestLog", "Base", "Conversation", "ConversationMessage"]
+__all__ = ["Base", "Conversation", "ConversationMessage", "Client"]

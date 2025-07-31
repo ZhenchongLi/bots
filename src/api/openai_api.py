@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, HTTPException, Request, Depends, BackgroundTasks
 from fastapi.responses import StreamingResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, Any, Optional
@@ -6,6 +6,9 @@ import orjson as json
 import time
 import uuid
 from datetime import datetime
+import structlog
+
+logger = structlog.get_logger()
 
 from src.models.openai import (
     ChatCompletionRequest,
@@ -40,32 +43,110 @@ from src.database.conversation_repository import ConversationRepository
 router = APIRouter(prefix="/v1")
 
 
-async def log_conversation_if_enabled(
+async def log_conversation_background(
+    session_id: str,
+    user_identifier: str,
+    messages: list,
+    response_content: Optional[str] = None,
+    actual_model: Optional[str] = None
+):
+    """Background task to log conversation to database"""
+    try:
+        # Create new database session for background task
+        from src.database.connection import AsyncSessionLocal
+        async with AsyncSessionLocal() as db:
+            repo = ConversationRepository(db)
+            
+            logger.info("Starting background conversation logging", 
+                       session_id=session_id, 
+                       user_identifier=user_identifier,
+                       has_response=bool(response_content))
+            
+            # Get or create conversation
+            conversation = await repo.get_conversation_by_session_id(session_id)
+            if not conversation:
+                logger.info("Creating new conversation", session_id=session_id)
+                conversation = await repo.create_conversation(
+                    user_identifier=user_identifier,
+                    session_id=session_id
+                )
+            else:
+                logger.info("Using existing conversation", 
+                           conversation_id=conversation.id, 
+                           session_id=session_id)
+            
+            # Log user messages
+            user_message_count = 0
+            for message in messages:
+                if message.get("role") == "user":
+                    await repo.add_message(
+                        conversation_id=conversation.id,
+                        role=message["role"],
+                        content=message["content"]
+                    )
+                    user_message_count += 1
+            
+            logger.info("Logged user messages", 
+                       conversation_id=conversation.id, 
+                       count=user_message_count)
+            
+            # Log assistant response if available
+            if response_content:
+                await repo.add_message(
+                    conversation_id=conversation.id,
+                    role="assistant",
+                    content=response_content,
+                    model_name=actual_model
+                )
+                logger.info("Logged assistant response", 
+                           conversation_id=conversation.id,
+                           content_length=len(response_content))
+            
+            logger.info("Background conversation logging completed successfully", 
+                       conversation_id=conversation.id)
+                       
+    except Exception as e:
+        logger.error("Failed to log conversation in background", error=str(e))
+
+
+async def log_conversation_always(
     request: Request,
     messages: list,
     response_content: Optional[str] = None,
     actual_model: Optional[str] = None,
     db: Optional[AsyncSession] = None
 ):
-    """Log conversation if session tracking is enabled via headers"""
-    session_id = request.headers.get("X-Session-ID")
+    """Log conversation automatically for all requests"""
+    # Generate session ID if not provided
+    session_id = request.headers.get("X-Session-ID") or f"auto_{request.client.host}_{int(time.time())}"
     user_identifier = request.headers.get("X-User-ID") or request.client.host
     
-    if not session_id or not db:
+    if not db:
         return
     
     try:
         repo = ConversationRepository(db)
         
+        logger.info("Starting conversation logging", 
+                   session_id=session_id, 
+                   user_identifier=user_identifier,
+                   has_response=bool(response_content))
+        
         # Get or create conversation
         conversation = await repo.get_conversation_by_session_id(session_id)
         if not conversation:
+            logger.info("Creating new conversation", session_id=session_id)
             conversation = await repo.create_conversation(
                 user_identifier=user_identifier,
                 session_id=session_id
             )
+        else:
+            logger.info("Using existing conversation", 
+                       conversation_id=conversation.id, 
+                       session_id=session_id)
         
         # Log user messages
+        user_message_count = 0
         for message in messages:
             if message.get("role") == "user":
                 await repo.add_message(
@@ -73,6 +154,11 @@ async def log_conversation_if_enabled(
                     role=message["role"],
                     content=message["content"]
                 )
+                user_message_count += 1
+        
+        logger.info("Logged user messages", 
+                   conversation_id=conversation.id, 
+                   count=user_message_count)
         
         # Log assistant response if available
         if response_content:
@@ -82,8 +168,16 @@ async def log_conversation_if_enabled(
                 content=response_content,
                 model_name=actual_model
             )
+            logger.info("Logged assistant response", 
+                       conversation_id=conversation.id,
+                       content_length=len(response_content))
+        
+        logger.info("Conversation logging completed successfully", 
+                   conversation_id=conversation.id)
+                   
     except Exception as e:
         # Don't fail the main request if conversation logging fails
+        logger.error("Failed to log conversation", error=str(e))
         print(f"Failed to log conversation: {e}")
         pass
 
@@ -105,10 +199,62 @@ async def list_models(key_data: Dict[str, Any] = Depends(verify_api_key)):
     return ModelListResponse(data=model_data)
 
 
+@router.get("/debug/conversations")
+async def debug_conversations(
+    db: AsyncSession = Depends(get_db_session),
+    key_data: Dict[str, Any] = Depends(verify_api_key)
+):
+    """Debug endpoint to check conversations in database."""
+    from src.database.conversation_repository import ConversationRepository
+    
+    repo = ConversationRepository(db)
+    
+    # Get all conversations (limit to 10 for debug)
+    from sqlalchemy import select
+    from src.models.conversation import Conversation, ConversationMessage
+    
+    conversations_result = await db.execute(
+        select(Conversation).order_by(Conversation.created_at.desc()).limit(10)
+    )
+    conversations = conversations_result.scalars().all()
+    
+    result = []
+    for conv in conversations:
+        messages_result = await db.execute(
+            select(ConversationMessage).where(
+                ConversationMessage.conversation_id == conv.id
+            ).order_by(ConversationMessage.timestamp)
+        )
+        messages = messages_result.scalars().all()
+        
+        result.append({
+            "id": conv.id,
+            "session_id": conv.session_id,
+            "title": conv.title,
+            "user_identifier": conv.user_identifier,
+            "created_at": conv.created_at.isoformat(),
+            "updated_at": conv.updated_at.isoformat(),
+            "message_count": len(messages),
+            "messages": [
+                {
+                    "id": msg.id,
+                    "role": msg.role,
+                    "content": msg.content[:100] + "..." if len(msg.content) > 100 else msg.content,
+                    "model_name": msg.model_name,
+                    "timestamp": msg.timestamp.isoformat()
+                }
+                for msg in messages
+            ]
+        })
+    
+    return {"conversations": result, "total_count": len(result)}
+
+
 @router.post("/chat/completions")
 async def create_chat_completion(
     request_obj: ChatCompletionRequest,
     request: Request,
+    background_tasks: BackgroundTasks,
     key_data: Dict[str, Any] = Depends(require_chat_permission),
     db: AsyncSession = Depends(get_db_session)
 ):
@@ -181,6 +327,13 @@ async def create_chat_completion(
         
         if request_obj.stream:
             # Handle streaming response
+            # Generate session info for background logging
+            session_id = request.headers.get("X-Session-ID") or f"auto_{request.client.host}_{int(time.time())}"
+            user_identifier = request.headers.get("X-User-ID") or request.client.host
+            
+            # Store collected content in a container that can be accessed outside the generator
+            collected_content_container = {"content": ""}
+            
             async def generate_stream():
                 try:
                     async for chunk in client.make_stream_request(
@@ -190,8 +343,21 @@ async def create_chat_completion(
                         json_data=request_data
                     ):
                         if chunk.strip():
+                            # Try to extract content from chunk for logging
+                            try:
+                                if chunk.startswith("data: ") and not chunk.startswith("data: [DONE]"):
+                                    chunk_data = json.loads(chunk[6:])  # Remove "data: " prefix
+                                    if isinstance(chunk_data, dict) and "choices" in chunk_data:
+                                        for choice in chunk_data["choices"]:
+                                            if "delta" in choice and "content" in choice["delta"]:
+                                                collected_content_container["content"] += choice["delta"]["content"]
+                            except:
+                                pass  # Ignore parsing errors for content collection
+                            
                             yield f"{chunk}\n\n"
+                    
                     yield "data: [DONE]\n\n"
+                    
                 except Exception as e:
                     logger.error("Error in streaming response", error=str(e))
                     error_data = {
@@ -202,6 +368,36 @@ async def create_chat_completion(
                     }
                     yield f"data: {json.dumps(error_data).decode()}\n\n"
                     yield "data: [DONE]\n\n"
+            
+            # Schedule background task immediately (before streaming starts)
+            logger.info("Scheduling stream conversation logging", session_id=session_id)
+            background_tasks.add_task(
+                log_conversation_background,
+                session_id=session_id,
+                user_identifier=user_identifier,
+                messages=messages,
+                response_content=None,  # We'll log user messages first
+                actual_model=actual_model
+            )
+            
+            # Also schedule a delayed task to log the complete response
+            # This is a workaround since we can't easily wait for the generator to complete
+            import asyncio
+            async def delayed_response_logging():
+                await asyncio.sleep(5)  # Wait for stream to likely complete
+                if collected_content_container["content"].strip():
+                    logger.info("Logging delayed stream response", 
+                               session_id=session_id,
+                               content_length=len(collected_content_container["content"]))
+                    await log_conversation_background(
+                        session_id=session_id,
+                        user_identifier=user_identifier,
+                        messages=[],  # Don't log user messages again
+                        response_content=collected_content_container["content"],
+                        actual_model=actual_model
+                    )
+            
+            background_tasks.add_task(delayed_response_logging)
             
             return StreamingResponse(
                 generate_stream(),
@@ -226,7 +422,7 @@ async def create_chat_completion(
                     if first_choice.get("message") and first_choice["message"].get("content"):
                         response_content = first_choice["message"]["content"]
                 
-                await log_conversation_if_enabled(
+                await log_conversation_always(
                     request=request,
                     messages=messages,
                     response_content=response_content,
