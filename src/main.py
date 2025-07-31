@@ -21,6 +21,9 @@ async def lifespan(app: FastAPI):
     configure_logging()
     await init_db()
     
+    # Load API keys from database after database is initialized
+    await api_key_manager._load_default_keys()
+    
     # Display startup information
     print("\n" + "="*50)
     print("🤖 OfficeAI API Proxy Server Starting")

@@ -7,35 +7,67 @@ import time
 from datetime import datetime, timedelta
 import orjson as json
 import structlog
+import asyncio
 
 logger = structlog.get_logger()
 
 class APIKeyManager:
     def __init__(self):
         self._api_keys: Dict[str, Dict[str, Any]] = {}
-        self._load_default_keys()
+        self._default_admin_key = None
+        # Don't load default keys immediately - wait for database to be ready
     
-    def _load_default_keys(self):
-        """Load default API keys."""
-        # Create a default admin key
-        admin_key = self.generate_api_key("officeai-admin")
-        self._api_keys[admin_key] = {
-            "key_id": "default_admin",
-            "description": "Default admin key - change in production",
-            "permissions": ["admin", "chat", "completion", "embedding"],
-            "created_at": datetime.now(),
-            "expires_at": None,  # Never expires
-            "last_used_at": None,
-            "usage_count": 0,
-            "is_active": True
-        }
-        
-        logger.info("Default admin API key created", 
-                   key_id="default_admin", 
-                   api_key=admin_key[:20] + "...")
-        
-        # Store the default admin key for startup display
-        self._default_admin_key = admin_key
+    async def _load_default_keys(self):
+        """Load default API keys from database."""
+        try:
+            from src.database.connection import AsyncSessionLocal
+            from src.models.client import Client
+            from sqlalchemy import select
+            
+            async with AsyncSessionLocal() as session:
+                # Get the default client from database
+                result = await session.execute(
+                    select(Client).where(Client.is_default == True)
+                )
+                default_client = result.scalar_one_or_none()
+                
+                if default_client:
+                    # Use the existing default client's API key
+                    admin_key = default_client.api_key
+                    self._api_keys[admin_key] = {
+                        "key_id": "default_admin",
+                        "description": "Default admin key from database",
+                        "permissions": ["admin", "chat", "completion", "embedding"],
+                        "created_at": default_client.created_at,
+                        "expires_at": None,  # Never expires
+                        "last_used_at": None,
+                        "usage_count": 0,
+                        "is_active": default_client.is_active
+                    }
+                    
+                    logger.info("Default admin API key loaded from database", 
+                               key_id="default_admin", 
+                               api_key=admin_key[:20] + "...")
+                    
+                    # Store the default admin key for startup display
+                    self._default_admin_key = admin_key
+                else:
+                    logger.warning("No default client found in database")
+        except Exception as e:
+            logger.error("Failed to load default keys from database", error=str(e))
+            # Fallback to creating a temporary key
+            admin_key = self.generate_api_key("officeai-admin")
+            self._api_keys[admin_key] = {
+                "key_id": "default_admin",
+                "description": "Temporary admin key - database unavailable",
+                "permissions": ["admin", "chat", "completion", "embedding"],
+                "created_at": datetime.now(),
+                "expires_at": None,
+                "last_used_at": None,
+                "usage_count": 0,
+                "is_active": True
+            }
+            self._default_admin_key = admin_key
     
     def generate_api_key(self, prefix: str = "officeai") -> str:
         """Generate a new API key with the specified prefix."""

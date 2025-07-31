@@ -1,1 +1,2 @@
 - to memoize
+- always use uv to manage packages and run python command

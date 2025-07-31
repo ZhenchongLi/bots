@@ -29,6 +29,7 @@
 - **🐳 容器化**: 完整的 Docker 支持，一键部署
 - **🔧 易配置**: 环境变量配置，支持多环境部署
 - **📦 开箱即用**: 零配置启动，自动环境隔离
+- **🔑 客户端管理**: 启动时自动检查并创建默认客户端，持久化API密钥管理
 
 ## 🚀 快速开始
 
@@ -97,6 +98,10 @@ LOG_LEVEL=info
 
 # 数据库配置
 DATABASE_URL=sqlite+aiosqlite:///./data/proxy.db
+
+# 客户端认证配置
+ENABLE_CLIENT_AUTH=true
+ALLOW_ANONYMOUS_ACCESS=false
 
 # 日志配置
 LOG_FILE_PATH=./logs/proxy.log
@@ -225,7 +230,11 @@ curl http://localhost:8000/chat/completions \\
 ```
 ├── src/                    # 源代码目录
 │   ├── api/               # API 路由层
-│   │   └── proxy.py       # 代理接口实现
+│   │   ├── proxy.py       # 代理接口实现
+│   │   ├── auth_api.py    # 认证管理接口
+│   │   └── conversation_api.py # 对话管理接口
+│   ├── auth/              # 认证系统
+│   │   └── client_auth.py # 客户端认证管理
 │   ├── core/              # 核心业务逻辑
 │   │   ├── model_manager.py      # 模型管理器
 │   │   └── platform_clients.py  # 平台客户端
@@ -234,11 +243,13 @@ curl http://localhost:8000/chat/completions \\
 │   ├── database/          # 数据层
 │   │   ├── connection.py  # 数据库连接
 │   │   └── repository.py  # 数据仓库
-│   ├── logging/           # 日志系统
+│   ├── log_config/        # 日志系统
 │   │   ├── config.py      # 日志配置
 │   │   └── middleware.py  # 日志中间件
 │   ├── models/            # 数据模型
-│   │   └── request_log.py # 请求日志模型
+│   │   ├── request_log.py # 请求日志模型
+│   │   ├── conversation.py # 对话模型
+│   │   └── client.py      # 客户端模型
 │   └── main.py           # 应用入口点
 ├── tests/                 # 测试目录（91% 覆盖率）
 │   ├── test_api.py       # API 接口测试
@@ -391,6 +402,8 @@ LOG_LEVEL=error   # 仅错误信息
 - **🔑 环境变量**: API 密钥通过环境变量配置，不写入代码
 - **🚫 日志过滤**: 自动过滤日志中的敏感信息
 - **🔒 传输加密**: 支持 HTTPS 和 TLS 加密传输
+- **👤 客户端认证**: 基于API密钥的客户端身份验证系统
+- **💾 持久化管理**: 客户端信息存储在数据库中，启动时自动初始化默认客户端
 
 ### 生产部署建议
 
@@ -462,7 +475,13 @@ rm data/proxy.db && uv run python -c "from src.database.connection import init_d
 
 ## 📝 更新日志
 
-### v0.1.0 (Latest)
+### v0.1.1 (Latest)
+- ✨ 新增客户端认证系统
+- 🔑 实现默认客户端自动初始化机制
+- 💾 支持客户端信息持久化存储
+- 🔄 启动时检查并创建默认客户端，避免重复生成API密钥
+
+### v0.1.0
 - ✨ 初始版本发布
 - ✅ 支持 OpenAI、Claude、Gemini 等多平台
 - ✅ 完整的测试覆盖（91%）

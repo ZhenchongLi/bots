@@ -3,7 +3,7 @@
 # OfficeAI API 测试脚本
 # API Key: officeai-admin-79222376bda3186039336d460f7150c7
 
-API_KEY="officeai-admin-79222376bda3186039336d460f7150c7"
+API_KEY="default-441e7c0b5a98e746662047cb948a4431"
 BASE_URL="http://localhost:8000"
 
 echo "🤖 OfficeAI API 测试开始"
