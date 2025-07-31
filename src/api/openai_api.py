@@ -179,21 +179,29 @@ async def create_chat_completion(
         # Remove None values
         request_data = {k: v for k, v in request_data.items() if v is not None}
         
-        # Make request to platform
-        response_data = await client.make_request(
-            method="POST",
-            path="/chat/completions",
-            headers={"Content-Type": "application/json"},
-            json_data=request_data
-        )
-        
         if request_obj.stream:
             # Handle streaming response
             async def generate_stream():
-                # This would need to be implemented based on the actual streaming response
-                # For now, return the response as is
-                yield f"data: {json.dumps(response_data['json']).decode()}\n\n"
-                yield "data: [DONE]\n\n"
+                try:
+                    async for chunk in client.make_stream_request(
+                        method="POST",
+                        path="/chat/completions",
+                        headers={"Content-Type": "application/json"},
+                        json_data=request_data
+                    ):
+                        if chunk.strip():
+                            yield f"{chunk}\n\n"
+                    yield "data: [DONE]\n\n"
+                except Exception as e:
+                    logger.error("Error in streaming response", error=str(e))
+                    error_data = {
+                        "error": {
+                            "message": f"Streaming error: {str(e)}",
+                            "type": "internal_error"
+                        }
+                    }
+                    yield f"data: {json.dumps(error_data).decode()}\n\n"
+                    yield "data: [DONE]\n\n"
             
             return StreamingResponse(
                 generate_stream(),
@@ -201,6 +209,14 @@ async def create_chat_completion(
                 headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
             )
         else:
+            # Make request to platform for non-streaming
+            response_data = await client.make_request(
+                method="POST",
+                path="/chat/completions",
+                headers={"Content-Type": "application/json"},
+                json_data=request_data
+            )
+            
             # Return standard response
             if response_data["json"]:
                 # Log conversation if enabled

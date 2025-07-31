@@ -1,8 +1,17 @@
 import structlog
 import logging
 import sys
+import orjson as json
 from pathlib import Path
 from src.config.settings import settings
+
+
+def chinese_friendly_json_renderer(_, __, event_dict):
+    """Custom JSON renderer that preserves Chinese characters."""
+    return json.dumps(
+        event_dict,
+        option=json.OPT_INDENT_2  # 格式化输出，orjson默认不转义非ASCII字符
+    ).decode()
 
 
 def configure_logging():
@@ -28,7 +37,7 @@ def configure_logging():
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
             structlog.processors.UnicodeDecoder(),
-            structlog.processors.JSONRenderer()
+            chinese_friendly_json_renderer
         ],
         context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),

@@ -30,6 +30,20 @@ class BasePlatformClient(ABC):
         """Make a request to the platform API."""
         pass
     
+    async def make_stream_request(
+        self,
+        method: str,
+        path: str,
+        headers: Optional[Dict[str, str]] = None,
+        json_data: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, str]] = None,
+    ):
+        """Make a streaming request to the platform API. Default implementation for non-streaming clients."""
+        # Fallback: make regular request for clients that don't override this method
+        response = await self.make_request(method, path, headers, json_data, params)
+        if response.get("json"):
+            yield f"data: {json.dumps(response['json']).decode()}"
+    
     def prepare_headers(self, headers: Optional[Dict[str, str]] = None) -> Dict[str, str]:
         """Prepare headers for the request."""
         request_headers = self.default_headers.copy()
@@ -81,6 +95,36 @@ class OpenAIClient(BasePlatformClient):
         """Check if response is JSON."""
         content_type = response.headers.get("content-type", "")
         return content_type.startswith("application/json")
+    
+    async def make_stream_request(
+        self,
+        method: str,
+        path: str,
+        headers: Optional[Dict[str, str]] = None,
+        json_data: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, str]] = None,
+    ):
+        """Make a streaming request to the platform API."""
+        url = f"{self.base_url.rstrip('/')}{path}"
+        
+        request_headers = self.prepare_headers(headers)
+        request_headers.update({
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        })
+        
+        async with httpx.AsyncClient() as client:
+            async with client.stream(
+                method=method,
+                url=url,
+                headers=request_headers,
+                json=json_data,
+                params=params,
+                timeout=self.timeout,
+            ) as response:
+                async for chunk in response.aiter_text():
+                    if chunk.strip():
+                        yield chunk
 
 
 class AnthropicClient(BasePlatformClient):
@@ -190,6 +234,41 @@ class AnthropicClient(BasePlatformClient):
         """Check if response is JSON."""
         content_type = response.headers.get("content-type", "")
         return content_type.startswith("application/json")
+    
+    async def make_stream_request(
+        self,
+        method: str,
+        path: str,
+        headers: Optional[Dict[str, str]] = None,
+        json_data: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, str]] = None,
+    ):
+        """Make a streaming request to the platform API."""
+        url = f"{self.base_url.rstrip('/')}{path}"
+        
+        # Convert OpenAI format to Anthropic format for streaming
+        if json_data:
+            json_data = self._convert_to_anthropic_format(json_data)
+        
+        request_headers = self.prepare_headers(headers)
+        request_headers.update({
+            "x-api-key": self.api_key,
+            "Content-Type": "application/json",
+            "anthropic-version": "2023-06-01",
+        })
+        
+        async with httpx.AsyncClient() as client:
+            async with client.stream(
+                method=method,
+                url=url,
+                headers=request_headers,
+                json=json_data,
+                params=params,
+                timeout=self.timeout,
+            ) as response:
+                async for chunk in response.aiter_text():
+                    if chunk.strip():
+                        yield chunk
 
 
 class GoogleClient(BasePlatformClient):
