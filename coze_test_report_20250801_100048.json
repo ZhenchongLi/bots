@@ -1,0 +1,74 @@
+{
+  "total": 6,
+  "passed": 4,
+  "failed": 2,
+  "success_rate": 66.66666666666666,
+  "results": {
+    "adapter_validation": {
+      "success": true,
+      "message": "配置验证通过",
+      "data": null,
+      "timestamp": 1754013649.0659149
+    },
+    "model_info": {
+      "success": true,
+      "message": "成功获取模型信息",
+      "data": {
+        "platform": "coze",
+        "enabled": true,
+        "actual_name": "unknown",
+        "display_name": "coze",
+        "description": "coze model",
+        "max_tokens": 4096,
+        "supports_streaming": true,
+        "supports_function_calling": false,
+        "bot_id": "extracted_from_model_name",
+        "model_format": "bot-{COZE_BOT_ID}",
+        "endpoint": "/v3/chat"
+      },
+      "timestamp": 1754013649.065949
+    },
+    "basic_chat_completion": {
+      "success": false,
+      "message": "请求失败: 200",
+      "data": null,
+      "timestamp": 1754013649.236575
+    },
+    "multi_turn_conversation": {
+      "success": false,
+      "message": "请求失败: 200",
+      "data": null,
+      "timestamp": 1754013649.384605
+    },
+    "streaming_chat": {
+      "success": true,
+      "message": "成功接收 4 个流式数据块",
+      "data": {
+        "chunk_count": 4,
+        "content": ""
+      },
+      "timestamp": 1754013649.733162
+    },
+    "error_handling": {
+      "success": true,
+      "message": "正确返回错误状态码: 400",
+      "data": {
+        "status_code": 400,
+        "headers": {
+          "connection": "close",
+          "content-length": "182",
+          "content-type": "application/json; charset=utf-8",
+          "date": "Fri, 01 Aug 2025 02:00:49 GMT",
+          "server": "hertz",
+          "x-log-id": "941e65be-ee6f-42be-8b13-a6baba87728e"
+        },
+        "content": "b'{\"code\":400,\"msg\":\"bind body failed, err=\\\\\"Syntax error at index 12: invalid char\\\\\\\\n\\\\\\\\n\\\\\\\\t{\\\\\\\\\\\\\"bot_id\\\\\\\\\\\\\":\\\\\\\\\\\\\"invalid-bot-id\\\\\\\\\\\\\",\\\\\\\\\\\\\"user\\\\\\\\n\\\\\\\\t............^...................\\\\\\\\n\\\\\"\"}'",
+        "json": {
+          "code": 400,
+          "msg": "bind body failed, err=\"Syntax error at index 12: invalid char\\n\\n\\t{\\\"bot_id\\\":\\\"invalid-bot-id\\\",\\\"user\\n\\t............^...................\\n\""
+        }
+      },
+      "timestamp": 1754013649.8923671
+    }
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "total": 6,
+  "passed": 4,
+  "failed": 2,
+  "success_rate": 66.66666666666666,
+  "results": {
+    "adapter_validation": {
+      "success": true,
+      "message": "配置验证通过",
+      "data": null,
+      "timestamp": 1754013453.163952
+    },
+    "model_info": {
+      "success": true,
+      "message": "成功获取模型信息",
+      "data": {
+        "platform": "coze",
+        "enabled": true,
+        "actual_name": "unknown",
+        "display_name": "coze",
+        "description": "coze model",
+        "max_tokens": 4096,
+        "supports_streaming": true,
+        "supports_function_calling": false,
+        "bot_id": "extracted_from_model_name",
+        "model_format": "bot-{COZE_BOT_ID}",
+        "endpoint": "/v3/chat"
+      },
+      "timestamp": 1754013453.16399
+    },
+    "basic_chat_completion": {
+      "success": true,
+      "message": "成功完成基本聊天",
+      "data": {
+        "id": "chatcmpl-unknown",
+        "object": "chat.completion",
+        "created": 1754013453,
+        "model": "bot-7533263489985413120",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": ""
+            },
+            "finish_reason": "stop"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        }
+      },
+      "timestamp": 1754013453.784242
+    },
+    "multi_turn_conversation": {
+      "success": true,
+      "message": "成功完成多轮对话",
+      "data": {
+        "id": "chatcmpl-unknown",
+        "object": "chat.completion",
+        "created": 1754013454,
+        "model": "bot-7533263489985413120",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": ""
+            },
+            "finish_reason": "stop"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        }
+      },
+      "timestamp": 1754013454.129947
+    },
+    "streaming_chat": {
+      "success": false,
+      "message": "未收到任何数据块",
+      "data": null,
+      "timestamp": 1754013454.477864
+    },
+    "error_handling": {
+      "success": false,
+      "message": "无效请求意外成功",
+      "data": null,
+      "timestamp": 1754013454.861357
+    }
+  }
+}
