@@ -92,13 +92,95 @@ class AdapterProxy:
         This is used when adapter system is not available or fails.
         """
         # Import here to avoid circular imports
-        from src.core.platform_clients import PlatformClientFactory
+        from src.core.platform_clients import OpenAIClient, AnthropicClient, GoogleClient
+        from src.config.settings import PlatformType
         
-        # Create original client
-        original_client = PlatformClientFactory.create_client(self.platform_type, self.config)
+        # Create original client directly to avoid recursion
+        client_class = None
+        platform_type = self.platform_type
+        
+        if platform_type in [PlatformType.OPENAI, PlatformType.AZURE_OPENAI, "openai", "azure_openai"]:
+            client_class = OpenAIClient
+        elif platform_type in [PlatformType.ANTHROPIC, "anthropic"]:
+            client_class = AnthropicClient
+        elif platform_type in [PlatformType.GOOGLE, "google"]:
+            client_class = GoogleClient
+        else:
+            # Default to OpenAI client for unknown platforms (including coze)
+            client_class = OpenAIClient
+        
+        # Create original client directly
+        original_client = client_class(self.config)
         
         # Use original client
         return await original_client.make_request(method, path, headers, json_data, params)
+    
+    async def make_stream_request(
+        self,
+        method: str,
+        path: str,
+        headers: Optional[Dict[str, str]] = None,
+        json_data: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, str]] = None,
+    ):
+        """
+        Make streaming request through adapter system or fallback.
+        """
+        if self._fallback_mode:
+            async for chunk in self._fallback_stream_request(method, path, headers, json_data, params):
+                yield chunk
+        else:
+            # Try adapter system streaming
+            try:
+                async for chunk in adapter_manager.process_stream_request(
+                    endpoint=path,
+                    method=method,
+                    openai_request=json_data or {},
+                    headers=headers
+                ):
+                    yield chunk
+            except Exception as e:
+                logger.error("Adapter streaming failed, using fallback", 
+                            platform=self.platform_type, 
+                            error=str(e))
+                async for chunk in self._fallback_stream_request(method, path, headers, json_data, params):
+                    yield chunk
+    
+    async def _fallback_stream_request(
+        self,
+        method: str,
+        path: str,
+        headers: Optional[Dict[str, str]] = None,
+        json_data: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, str]] = None,
+    ):
+        """
+        Fallback to original platform client system for streaming.
+        """
+        # Import here to avoid circular imports
+        from src.core.platform_clients import OpenAIClient, AnthropicClient, GoogleClient
+        from src.config.settings import PlatformType
+        
+        # Create original client directly to avoid recursion
+        client_class = None
+        platform_type = self.platform_type
+        
+        if platform_type in [PlatformType.OPENAI, PlatformType.AZURE_OPENAI, "openai", "azure_openai"]:
+            client_class = OpenAIClient
+        elif platform_type in [PlatformType.ANTHROPIC, "anthropic"]:
+            client_class = AnthropicClient
+        elif platform_type in [PlatformType.GOOGLE, "google"]:
+            client_class = GoogleClient
+        else:
+            # Default to OpenAI client for unknown platforms (including coze)
+            client_class = OpenAIClient
+        
+        # Create original client directly
+        original_client = client_class(self.config)
+        
+        # Use original client's streaming method
+        async for chunk in original_client.make_stream_request(method, path, headers, json_data, params):
+            yield chunk
     
     def get_model_info(self) -> Dict[str, Any]:
         """Get model information."""

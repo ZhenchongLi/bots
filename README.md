@@ -15,6 +15,7 @@
 ### 🚀 代理服务
 - **🎯 统一接口**: 提供标准 OpenAI API 兼容接口，支持所有主流客户端
 - **🌐 多平台支持**: 支持 OpenAI、Claude (Anthropic)、Gemini (Google)、Azure OpenAI、Coze Bot 等
+- **🔌 适配器架构**: 基于插件式适配器系统，易于扩展新的 AI 平台
 - **🔄 智能转换**: 自动处理不同 AI 服务间的 API 格式差异和参数映射
 - **⚡ 高性能**: 基于 FastAPI 异步框架，支持高并发请求处理
 
@@ -171,11 +172,35 @@ ACTUAL_NAME=gpt-4
 
 ```env
 TYPE=coze
-API_KEY=your-coze-api-key
-BASE_URL=https://api.coze.com/v1
-BOT_ID=your-bot-id
-CONVERSATION_ID=optional-conversation-id
-ACTUAL_NAME=coze-bot
+API_KEY=pat_91b9201327ac94c40b5630ee49e4d76a666b5e9d965d99ec21035c05d89a1e38
+BASE_URL=http://your-coze-api-host:port
+ACTUAL_NAME=bot-7533263489985413120
+ENABLED=true
+SUPPORTS_STREAMING=true
+SUPPORTS_FUNCTION_CALLING=false
+```
+
+**配置说明:**
+- `API_KEY`: Coze Bot 的 Personal Access Token (以 `pat_` 开头)  
+- `BASE_URL`: Coze API 服务器地址
+- `ACTUAL_NAME`: 使用 `bot-{COZE_BOT_ID}` 格式，系统会自动提取 bot_id
+- 支持完整的流式和非流式响应
+- 兼容标准 OpenAI Python SDK
+
+**使用示例:**
+```python
+import openai
+
+client = openai.OpenAI(
+    api_key="your-proxy-api-key",
+    base_url="http://localhost:8000/v1"
+)
+
+response = client.chat.completions.create(
+    model="bot-7533263489985413120",
+    messages=[{"role": "user", "content": "Hello"}],
+    stream=True
+)
 ```
 </details>
 
@@ -254,6 +279,11 @@ curl http://localhost:8000/chat/completions \\
 │   │   ├── proxy.py       # 代理接口实现
 │   │   ├── auth_api.py    # 认证管理接口
 │   │   └── conversation_api.py # 对话管理接口
+│   ├── adapters/          # 平台适配器系统
+│   │   ├── base.py        # 基础适配器类
+│   │   ├── manager.py     # 适配器管理器
+│   │   ├── coze_adapter.py # Coze Bot 适配器
+│   │   └── proxy.py       # 代理适配器
 │   ├── auth/              # 认证系统
 │   │   └── client_auth.py # 客户端认证管理
 │   ├── core/              # 核心业务逻辑
@@ -495,7 +525,14 @@ rm data/proxy.db && uv run python -c "from src.database.connection import init_d
 
 ## 📝 更新日志
 
-### v0.1.1 (Latest)
+### v0.1.2 (Latest)
+- 🔌 **全新适配器架构**: 实现基于插件的适配器系统，支持多平台扩展
+- 🤖 **Coze Bot v3 支持**: 完整重构 Coze 适配器，支持 v3 API 和流式响应
+- 🎯 **模型名称映射**: 支持 `bot-{ID}` 格式自动转换为 Coze Bot ID
+- ⚡ **流式响应优化**: 改进流式响应处理，支持 Server-Sent Events 格式
+- 📊 **增强监控**: 完善错误处理和详细的调试日志
+
+### v0.1.1  
 - ✨ 新增客户端认证系统
 - 🔑 实现默认客户端自动初始化机制
 - 💾 支持客户端信息持久化存储

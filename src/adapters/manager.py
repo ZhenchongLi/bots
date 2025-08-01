@@ -91,7 +91,7 @@ class AdapterManager:
         if not self._current_adapter.enabled:
             raise RuntimeError(f"Adapter {self._current_adapter.platform_name} is disabled")
         
-        # Check if endpoint is supported
+        # Check if endpoint is supported and map to platform-specific endpoint
         if endpoint not in self._current_adapter.get_supported_endpoints():
             raise ValueError(f"Endpoint {endpoint} not supported by {self._current_adapter.platform_name}")
         
@@ -99,8 +99,11 @@ class AdapterManager:
             # Transform request to platform format
             platform_request = await self._current_adapter.transform_request(endpoint, openai_request)
             
+            # Map endpoint to platform-specific endpoint
+            platform_endpoint = self._map_endpoint_to_platform(endpoint)
+            
             # Construct URL
-            url = f"{self._current_adapter.base_url.rstrip('/')}{endpoint}"
+            url = f"{self._current_adapter.base_url.rstrip('/')}{platform_endpoint}"
             
             # Make request to platform
             platform_response = await self._current_adapter.make_request(
@@ -149,6 +152,177 @@ class AdapterManager:
                         error=str(e))
             
             return {
+                "error": {
+                    "message": f"Internal error: {str(e)}",
+                    "type": "internal_error",
+                    "code": "processing_error"
+                }
+            }
+    
+    def _map_endpoint_to_platform(self, endpoint: str) -> str:
+        """Map OpenAI endpoint to platform-specific endpoint."""
+        if not self._current_adapter:
+            return endpoint
+            
+        platform_name = self._current_adapter.platform_name
+        
+        # Map endpoints for different platforms
+        if platform_name == "coze":
+            if endpoint == "/chat/completions":
+                return "/v3/chat"
+        
+        # Default: return original endpoint
+        return endpoint
+    
+    async def process_stream_request(
+        self, 
+        endpoint: str, 
+        method: str,
+        openai_request: Dict[str, Any],
+        headers: Optional[Dict[str, str]] = None
+    ):
+        """
+        Process streaming request through the current adapter.
+        
+        Args:
+            endpoint: API endpoint (e.g., '/chat/completions')
+            method: HTTP method
+            openai_request: Request in OpenAI format
+            headers: HTTP headers
+            
+        Yields:
+            Response chunks in OpenAI format
+        """
+        if not self._current_adapter:
+            raise RuntimeError("No adapter initialized")
+        
+        if not self._current_adapter.enabled:
+            raise RuntimeError(f"Adapter {self._current_adapter.platform_name} is disabled")
+        
+        # Check if endpoint is supported and map to platform-specific endpoint
+        if endpoint not in self._current_adapter.get_supported_endpoints():
+            raise ValueError(f"Endpoint {endpoint} not supported by {self._current_adapter.platform_name}")
+        
+        try:
+            # Transform request to platform format
+            platform_request = await self._current_adapter.transform_request(endpoint, openai_request)
+            
+            # Map endpoint to platform-specific endpoint
+            platform_endpoint = self._map_endpoint_to_platform(endpoint)
+            
+            # Construct URL
+            url = f"{self._current_adapter.base_url.rstrip('/')}{platform_endpoint}"
+            
+            # Check if adapter supports streaming
+            if hasattr(self._current_adapter, 'make_stream_request'):
+                # Make streaming request to platform
+                async for chunk in self._current_adapter.make_stream_request(
+                    method=method,
+                    url=url,
+                    headers=headers,
+                    json_data=platform_request
+                ):
+                    if chunk:  # Skip None chunks
+                        # Transform each chunk to OpenAI format if needed
+                        if "error" not in chunk:
+                            yield chunk
+                        else:
+                            # Error handling
+                            yield chunk
+                            return
+            else:
+                # Fallback to non-streaming for adapters without streaming support
+                logger.warning("Adapter doesn't support streaming, using non-streaming fallback",
+                              platform=self._current_adapter.platform_name)
+                
+                # Make regular request and yield as single chunk
+                platform_response = await self._current_adapter.make_request(
+                    method=method,
+                    url=url,
+                    headers=headers,
+                    json_data=platform_request
+                )
+                
+                if platform_response["status_code"] >= 400:
+                    yield {
+                        "error": {
+                            "message": f"Platform API error: {platform_response['status_code']}",
+                            "type": "platform_error",
+                            "code": platform_response["status_code"]
+                        }
+                    }
+                    return
+                
+                # Transform response to OpenAI streaming format
+                if platform_response["json"]:
+                    openai_response = await self._current_adapter.transform_response(
+                        endpoint, platform_response["json"]
+                    )
+                    
+                    # Convert to streaming format
+                    if "choices" in openai_response and openai_response["choices"]:
+                        content = openai_response["choices"][0].get("message", {}).get("content", "")
+                        
+                        # Start chunk
+                        yield {
+                            "id": openai_response.get("id", "fallback-stream"),
+                            "object": "chat.completion.chunk",
+                            "created": openai_response.get("created", 1677652288),
+                            "model": openai_response.get("model", "unknown"),
+                            "choices": [{
+                                "index": 0,
+                                "delta": {"role": "assistant"},
+                                "finish_reason": None
+                            }]
+                        }
+                        
+                        # Content chunk
+                        if content:
+                            yield {
+                                "id": openai_response.get("id", "fallback-stream"),
+                                "object": "chat.completion.chunk",
+                                "created": openai_response.get("created", 1677652288),
+                                "model": openai_response.get("model", "unknown"),
+                                "choices": [{
+                                    "index": 0,
+                                    "delta": {"content": content},
+                                    "finish_reason": None
+                                }]
+                            }
+                        
+                        # End chunk
+                        yield {
+                            "id": openai_response.get("id", "fallback-stream"),
+                            "object": "chat.completion.chunk",
+                            "created": openai_response.get("created", 1677652288),
+                            "model": openai_response.get("model", "unknown"),
+                            "choices": [{
+                                "index": 0,
+                                "delta": {},
+                                "finish_reason": "stop"
+                            }],
+                            "usage": openai_response.get("usage", {
+                                "prompt_tokens": 0,
+                                "completion_tokens": 0,
+                                "total_tokens": 0
+                            })
+                        }
+                else:
+                    yield {
+                        "error": {
+                            "message": "Invalid response from platform",
+                            "type": "invalid_response",
+                            "code": "no_json"
+                        }
+                    }
+                    
+        except Exception as e:
+            logger.error("Error processing streaming request", 
+                        platform=self._current_adapter.platform_name,
+                        endpoint=endpoint,
+                        error=str(e))
+            
+            yield {
                 "error": {
                     "message": f"Internal error: {str(e)}",
                     "type": "internal_error",

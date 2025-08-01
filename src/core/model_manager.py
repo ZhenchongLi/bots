@@ -41,8 +41,8 @@ class ModelManager:
         # Handle platform-specific settings
         if platform_type == "coze":
             # Coze Bot specific settings
-            bot_id = os.getenv("BOT_ID")
-            conversation_id = os.getenv("CONVERSATION_ID", "")
+            bot_id = settings.bot_id
+            conversation_id = settings.conversation_id
             
             if bot_id:
                 config["bot_id"] = bot_id

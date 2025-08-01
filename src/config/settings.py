@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     cost_per_1k_input_tokens: Optional[float] = None
     cost_per_1k_output_tokens: Optional[float] = None
     
+    # Platform-specific settings (Coze Bot)
+    bot_id: Optional[str] = None
+    conversation_id: Optional[str] = None
+    
 
     @field_validator('cost_per_1k_input_tokens', 'cost_per_1k_output_tokens', mode='before')
     def parse_cost_fields(cls, v):
