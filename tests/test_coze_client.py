@@ -35,42 +35,39 @@ class TestCozeAdapter:
         assert adapter.api_key == "test-coze-api-key"
         assert adapter.base_url == "https://api.coze.com/v1"
         assert adapter.timeout == 300
-        assert adapter.bot_id == "test-bot-123"
-        assert adapter.conversation_id == "test-conv-456"
+        # bot_id is now extracted from model name at runtime, not during init
+        assert adapter.bot_id is None  # Initially None until model is processed
     
     @pytest.mark.asyncio
     async def test_transform_request(self, coze_adapter):
         """Test request transformation from OpenAI format to Coze format."""
         openai_data = {
-            "model": "gpt-3.5-turbo",
+            "model": "bot-test-bot-123",  # Use proper bot-{id} format
             "messages": [
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": "Hello, how are you?"}
             ],
-            "max_tokens": 100,
-            "temperature": 0.7,
             "stream": False
         }
         
         coze_data = await coze_adapter.transform_request("/chat/completions", openai_data)
         
         assert coze_data["bot_id"] == "test-bot-123"
-        assert coze_data["user"] == "Hello, how are you?"
-        assert coze_data["conversation_id"] == "test-conv-456"
-        assert coze_data["max_tokens"] == 100
-        assert coze_data["temperature"] == 0.7
+        assert coze_data["user_id"] == "default_user"
+        assert coze_data["additional_messages"][-1]["content"] == "Hello, how are you?"
         assert coze_data["stream"] is False
     
     def test_adapter_initialization_missing_bot_id(self):
-        """Test adapter initialization fails when bot_id is missing."""
+        """Test adapter initialization no longer requires bot_id during init."""
         config = {
             "api_key": "test-api-key",
             "base_url": "https://api.coze.com/v1"
-            # Missing bot_id
+            # bot_id is now extracted from model name, not required during init
         }
         
-        with pytest.raises(ValueError, match="bot_id is required"):
-            CozeAdapter(config)
+        # Should not fail - bot_id is extracted from model at runtime
+        adapter = CozeAdapter(config)
+        assert adapter.bot_id is None  # Initially None
     
     @pytest.mark.asyncio
     async def test_transform_response_with_messages(self, coze_adapter):
@@ -89,7 +86,7 @@ class TestCozeAdapter:
         
         openai_response = await coze_adapter.transform_response("/chat/completions", coze_response)
         
-        assert openai_response["id"] == "test-conv-456"
+        assert openai_response["id"] == "chatcmpl-test-conv-456"
         assert openai_response["object"] == "chat.completion"
         assert openai_response["created"] == 1677652288
         assert len(openai_response["choices"]) == 1
@@ -114,7 +111,7 @@ class TestCozeAdapter:
         
         openai_response = await coze_adapter.transform_response("/chat/completions", coze_response)
         
-        assert "coze-" in openai_response["id"]
+        assert openai_response["id"] == "chatcmpl-unknown"
         assert openai_response["object"] == "chat.completion"
         assert len(openai_response["choices"]) == 1
         

@@ -94,17 +94,38 @@ class CozeAdapter(BasePlatformAdapter):
         """Transform Coze non-streaming response to OpenAI format according to docs."""
         response_text = ""
         
-        # Extract answer type messages according to documentation
-        for message in coze_response.get("messages", []):
-            if message.get("type") == "answer":
-                response_text = message.get("content", "")
-                break
+        # Try multiple extraction methods for compatibility
+        if "messages" in coze_response:
+            # Extract answer type messages according to documentation
+            for message in coze_response["messages"]:
+                if message.get("type") == "answer":
+                    response_text = message.get("content", "")
+                    break
+            
+            # If no "answer" type found, try assistant role messages
+            if not response_text:
+                for message in coze_response["messages"]:
+                    if message.get("role") == "assistant" and message.get("content"):
+                        response_text = message.get("content", "")
+                        break
+        
+        # Try direct answer field (legacy format)
+        if not response_text and "answer" in coze_response:
+            response_text = coze_response.get("answer", "")
+        
+        # Try any message content as fallback
+        if not response_text and "messages" in coze_response:
+            for message in coze_response["messages"]:
+                content = message.get("content", "")
+                if content:
+                    response_text = content
+                    break
         
         # Build OpenAI response according to docs
         return {
             "id": f"chatcmpl-{coze_response.get('conversation_id', 'unknown')}",
             "object": "chat.completion",
-            "created": int(time.time()),
+            "created": coze_response.get('created_at', int(time.time())),
             "model": f"bot-{self.bot_id}" if self.bot_id else "coze-bot",
             "choices": [{
                 "index": 0,
@@ -288,6 +309,9 @@ class CozeAdapter(BasePlatformAdapter):
                                         if not chat_id and "id" in data:
                                             chat_id = data.get("id")
                                         
+                                        # Log the raw data for debugging
+                                        logger.debug("Processing Coze stream data", data=data)
+                                        
                                         # Transform to OpenAI format
                                         result = self._transform_coze_stream_data(data)
                                         if result:
@@ -380,7 +404,9 @@ class CozeAdapter(BasePlatformAdapter):
             # Try multiple possible endpoints for getting conversation content
             endpoints = [
                 f"/v3/chat/message/list",
-                f"/v1/conversation/message/list"
+                f"/v1/conversation/message/list",
+                f"/v3/chat/retrieve",
+                f"/v1/chat/retrieve"
             ]
             
             for endpoint in endpoints:
@@ -397,17 +423,44 @@ class CozeAdapter(BasePlatformAdapter):
                     
                     if response.status_code == 200:
                         data = response.json()
-                        # Extract the assistant's response
+                        logger.debug("Fetched conversation content", endpoint=endpoint, data=data)
+                        
+                        # Extract the assistant's response - try multiple formats
                         if "data" in data:
                             messages = data["data"]
-                            for msg in reversed(messages):  # Get latest message
-                                if msg.get("role") == "assistant" and msg.get("content"):
-                                    return msg["content"]
+                            if isinstance(messages, list):
+                                for msg in reversed(messages):  # Get latest message
+                                    # Try different content extraction methods
+                                    content = None
+                                    if msg.get("role") == "assistant" and msg.get("content"):
+                                        content = msg["content"]
+                                    elif msg.get("type") == "answer" and msg.get("content"):
+                                        content = msg["content"]
+                                    elif msg.get("content"):  # Any content as fallback
+                                        content = msg["content"]
+                                    
+                                    if content:
+                                        return content
                         elif "messages" in data:
                             messages = data["messages"]
-                            for msg in reversed(messages):
-                                if msg.get("role") == "assistant" and msg.get("content"):
-                                    return msg["content"]
+                            if isinstance(messages, list):
+                                for msg in reversed(messages):
+                                    content = None
+                                    if msg.get("role") == "assistant" and msg.get("content"):
+                                        content = msg["content"]
+                                    elif msg.get("type") == "answer" and msg.get("content"):
+                                        content = msg["content"]
+                                    elif msg.get("content"):
+                                        content = msg["content"]
+                                    
+                                    if content:
+                                        return content
+                        elif "answer" in data:
+                            # Direct answer field
+                            return data["answer"]
+                        elif "content" in data:
+                            # Direct content field
+                            return data["content"]
                 except Exception as e:
                     logger.debug(f"Failed to fetch from {endpoint}", error=str(e))
                     continue
@@ -531,6 +584,36 @@ class CozeAdapter(BasePlatformAdapter):
                                 "finish_reason": None
                             }]
                         }
+            elif "content" in data:
+                # Handle direct content field
+                content = data.get("content", "")
+                if content:
+                    return {
+                        "id": f"coze-{chat_id}",
+                        "object": "chat.completion.chunk", 
+                        "created": created_at,
+                        "model": f"bot-{self.bot_id}" if self.bot_id else "coze-bot",
+                        "choices": [{
+                            "index": 0,
+                            "delta": {"content": content},
+                            "finish_reason": None
+                        }]
+                    }
+            elif "answer" in data:
+                # Handle direct answer field
+                answer = data.get("answer", "")
+                if answer:
+                    return {
+                        "id": f"coze-{chat_id}",
+                        "object": "chat.completion.chunk", 
+                        "created": created_at,
+                        "model": f"bot-{self.bot_id}" if self.bot_id else "coze-bot",
+                        "choices": [{
+                            "index": 0,
+                            "delta": {"content": answer},
+                            "finish_reason": None
+                        }]
+                    }
             
             # Handle other status types or log for debugging
             if status and status not in ["in_progress", "completed", "failed"]:
